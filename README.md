@@ -23,4 +23,6 @@ I plan on writing the program in rust for a) increased performance b) improve my
 ## Technical Details
 The NES consists of three main chips: the CPU (Ricoh 2A03), the PPU (Ricoh 2C02), and the APU. Each of these chips have their own RAM (where the CPU has 2KiB, and the PPU has 16KiB). However, the CPU (and the PPU) both can address more than the size of their RAM to perform different functions. 
 
-The CPU, PPU, and APU are all synchronised to a master clock (which runs at )
+The CPU 
+
+The CPU, and PPU are synchronised to a master clock (which runs at 236.25 / 11 MHz). The CPU clock runs at a speed 12x slower than the master clock, and PPU clock runs at a speed 4x slower than the master clock. However, the PPU clock may not be synced to the CPU clock (e.g. the 1st CPU clock cycle could be synced to the 2nd PPU clock cycle)
