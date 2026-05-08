@@ -35,6 +35,10 @@ impl Register8 {
     pub fn unset_bit(&mut self, bit: u8) {
         self.value &= !(1 << bit);
     }
+
+    pub fn increment(&mut self) {
+        self.value = self.value.wrapping_add(1);
+    }
 }
 
 impl Register16 {
@@ -86,6 +90,14 @@ impl Register16 {
     pub fn increment(&mut self) {
         self.value = self.value.wrapping_add(1);
     }
+
+    pub fn increment_low(&mut self) {
+        self.value = (self.value & 0xff00) + (self.value.wrapping_add(1) & 0x00ff);
+    }
+
+    pub fn increment_high(&mut self) {
+        self.value = self.value.wrapping_add(0x0100);
+    }
 }
 
 #[cfg(test)]
@@ -120,6 +132,13 @@ mod tests {
         reg.write_bit(7, false);
         assert_eq!(reg.read(), 0x22);
         assert_eq!(reg.read_bit(7), false);
+
+        reg.increment();
+        assert_eq!(reg.read(), 0x23);
+
+        reg.write(0xff);
+        reg.increment();
+        assert_eq!(reg.read(), 0x00);
     }
 
     #[test]
@@ -158,6 +177,22 @@ mod tests {
         reg.write(0xffff);
         reg.increment();
         assert_eq!(reg.read(), 0x0000);
+
+        reg.write(0x4243);
+        reg.increment_low();
+        assert_eq!(reg.read(), 0x4244);
+    
+        reg.write(0x42ff);
+        reg.increment_low();
+        assert_eq!(reg.read(), 0x4200);
+    
+        reg.write(0x1234);
+        reg.increment_high();
+        assert_eq!(reg.read(), 0x1334);
+        
+        reg.write(0xff32);
+        reg.increment_high();
+        assert_eq!(reg.read(), 0x0032);
 
         reg.write_bit(12, true);
         assert_eq!(reg.read(), 0x0800);

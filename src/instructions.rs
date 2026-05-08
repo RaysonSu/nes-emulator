@@ -3,7 +3,7 @@ use AddressMode::*;
 
 pub const INSTRUCTION_TABLE: [Instruction; 256] = [
     Brk, Ora, Stp, Slo, Nop, Ora, Asl, Slo, Php, Ora, Asl, Anc, Nop, Ora, Asl, Slo,
-    Bpl, Ora, Stp, Slo, Nop, Ora, Asl, Slo, Clc, Ora, Nop, Slo, Nop, Ora, Asl, Alo,
+    Bpl, Ora, Stp, Slo, Nop, Ora, Asl, Slo, Clc, Ora, Nop, Slo, Nop, Ora, Asl, Slo,
     Jsr, And, Stp, Rla, Bit, And, Rol, Rla, Plp, And, Rol, Anc, Bit, And, Rol, Rla,
     Bmi, And, Stp, Rla, Nop, And, Rol, Rla, Sec, And, Nop, Rla, Nop, And, Rol, Rla,
     Rti, Eor, Stp, Sre, Nop, Eor, Lsr, Sre, Pha, Eor, Lsr, Alr, Jmp, Eor, Lsr, Sre,
@@ -45,66 +45,20 @@ pub enum AddressMode {
 
 #[derive(PartialEq, Clone)]
 pub enum Instruction {
-    Adc,
-    And,
-    Asl,
-    Bcc,
-    Bcs,
-    Beq,
-    Bit,
-    Bmi,
-    Bne,
-    Bpl,
-    Brk,
-    Bvc,
-    Bvs,
-    Clc,
-    Cld,
-    Cli,
-    Clv,
-    Cmp,
-    Cpx,
-    Cpy,
-    Dec,
-    Dex,
-    Dey,
-    Eor,
-    Inc,
-    Inx,
-    Iny,
-    Jmp,
-    Jsr,
-    Lda,
-    Ldx,
-    Ldy,
-    Lsr,
+    Lda, Sta, Ldx, Stx, Ldy, Sty,
+    Tax, Txa, Tay, Tya,
+    Adc, Sbc, Inc, Dec, Inx, Dex, Iny, Dey,
+    Asl, Lsr, Rol, Ror,
+    And, Ora, Eor, Bit,
+    Cmp, Cpx, Cpy,
+    Bcc, Bcs, Beq, Bne, Bpl, Bmi, Bvc, Bvs,
+    Jmp, Jsr, Rts, Brk, Rti,
+    Pha, Pla, Php, Plp, Txs, Tsx,
+    Clc, Sec, Cli, Sei, Cld, Sed, Clv,
     Nop,
-    Ora,
-    Pha,
-    Php,
-    Pla,
-    Plp,
-    Rol,
-    Ror,
-    Rti,
-    Rts,
-    Sbc,
-    Sec,
-    Sed,
-    Sei,
-    Sta,
-    Stx,
-    Sty,
-    Tax,
-    Tay,
-    Tsx,
-    Txa,
-    Txs,
-    Tya,
 
     // unofficial opcodes
     Ahx,
-    Alo,
     Alr,
     Arr,
     Axs,
@@ -125,6 +79,14 @@ pub enum Instruction {
     Xaa
 }
 
+pub enum InstructionType {
+    NoReadWrite,
+    Stack,
+    Read,
+    ReadModifyWrite,
+    Write
+}
+
 impl AddressMode {
     pub fn from_opcode(opcode: u8) -> AddressMode {
         return ADDRESS_MODE_TABLE[opcode as usize].clone();
@@ -143,8 +105,8 @@ impl AddressMode {
             ZeroPageIndexedY => 1,
             AbsoluteIndexedX => 2,
             AbsoluteIndexedY => 2,
-            IndexedIndirectX => 2,
-            IndirectIndexedY => 2
+            IndexedIndirectX => 1,
+            IndirectIndexedY => 1
         };
 
         return count;
@@ -154,5 +116,17 @@ impl AddressMode {
 impl Instruction {
     pub fn from_opcode(opcode: u8) -> Instruction {
         return INSTRUCTION_TABLE[opcode as usize].clone();
+    }
+
+    pub fn get_type(&self) -> InstructionType {
+        let instruction_type = match self {
+            Lda | Ldx | Ldy | Eor | And | Ora | Adc | Sbc | Cmp | Bit | Lax | Nop | Las => InstructionType::Read,
+            Asl | Lsr | Rol | Ror | Inc | Dec | Slo | Sre | Rla | Rra | Isc | Dcp => InstructionType::ReadModifyWrite,
+            Sta | Stx | Sty | Sax | Ahx | Shx | Shy | Axs => InstructionType::Write,
+            Tas | Tax | Tay | Tsx | Txa | Txs | Tya | Jmp | Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvc | Bvs | Inx | Dex | Iny | Dey | Cpx | Cpy | Clc | Sec | Cli | Sei | Cld | Sed | Clv | Alr | Arr | Anc | Stp | Xaa => InstructionType::NoReadWrite,
+            Brk | Rti | Rts | Pha | Php | Pla | Plp | Jsr => InstructionType::Stack
+        };
+
+        return instruction_type;
     }
 }
