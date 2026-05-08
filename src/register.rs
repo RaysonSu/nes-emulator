@@ -15,8 +15,17 @@ impl Register8 {
         return self.value;
     }
 
+    pub fn read_bit(&self, bit: u8) -> bool {
+        return (self.value >> bit) & 1 == 1;
+    }
+
     pub fn write(&mut self, value: u8) {
         self.value = value;
+    }
+
+    pub fn write_bit(&mut self, bit: u8, value: bool) {
+        self.unset_bit(bit);
+        self.value |= (value as u8) << bit;
     }
 
     pub fn set_bit(&mut self, bit: u8) {
@@ -35,6 +44,10 @@ impl Register16 {
 
     pub fn read(&self) -> u16 {
         return self.value;
+    }
+
+    pub fn read_bit(&self, bit: u8) -> bool {
+        return (self.value >> bit) & 1 == 1;
     }
 
     pub fn read_low(&self) -> u8 {
@@ -57,6 +70,11 @@ impl Register16 {
         self.value = self.value & 0xff | (value as u16) << 8;
     }
 
+    pub fn write_bit(&mut self, bit: u8, value: bool) {
+        self.unset_bit(bit);
+        self.value |= (value as u16) << bit;
+    }
+
     pub fn set_bit(&mut self, bit: u8) {
         self.value |= 1 << bit;
     }
@@ -65,7 +83,7 @@ impl Register16 {
         self.value &= !(1 << bit);
     }
 
-    pub fn inc(&mut self) {
+    pub fn increment(&mut self) {
         self.value = self.value.wrapping_add(1);
     }
 }
@@ -94,6 +112,14 @@ mod tests {
         
         reg.unset_bit(6);
         assert_eq!(reg.read(), 0x22);
+
+        reg.write_bit(7, true);
+        assert_eq!(reg.read(), 0xa2);
+        assert_eq!(reg.read_bit(7), true);
+
+        reg.write_bit(7, false);
+        assert_eq!(reg.read(), 0x22);
+        assert_eq!(reg.read_bit(7), false);
     }
 
     #[test]
@@ -126,11 +152,19 @@ mod tests {
         reg.write_high(0x44);
         assert_eq!(reg.read(), 0x4437);
 
-        reg.inc();
+        reg.increment();
         assert_eq!(reg.read(), 0x4438);
 
         reg.write(0xffff);
-        reg.inc();
-        assert_eq!(reg.read(), 0x0000)
+        reg.increment();
+        assert_eq!(reg.read(), 0x0000);
+
+        reg.write_bit(12, true);
+        assert_eq!(reg.read(), 0x0800);
+        assert_eq!(reg.read_bit(12), true);
+
+        reg.write_bit(12, false);
+        assert_eq!(reg.read(), 0x0000);
+        assert_eq!(reg.read_bit(12), false);
     }
 }
