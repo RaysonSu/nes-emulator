@@ -1,15 +1,19 @@
 use crate::{ram::Ram, register::{Register8, Register16}, instructions::{Instruction, InstructionType, AddressMode}};
 
 enum ReadWriteState {
+    // opcode 
     FetchOpcode,
+
+    // operands
     FetchImmediate,
     FetchZeroPageAddress,
     FetchAddressLow,
     FetchAddressHigh,
+
+    // actually trying to get what memory adress / value we're acting on.
     ReadUseless,
     ReadZeroPage,
-    ReadAbsoluteLow,
-    ReadAbsoluteHigh,
+    ReadAbsolute,
     ReadRelative,
     ReadIndirectLow,
     ReadIndirectHigh,
@@ -72,49 +76,18 @@ impl Cpu {
     // }
 
     pub fn cycle(&mut self) {
-        let mut alu_state = AluState::Noop;
 
-        match self.read_write_state {
-            ReadWriteState::FetchOpcode => {
-                self.fetch_opcode();
-                self.read_write_state = match self.address_mode {
-                    AddressMode::Implicit | AddressMode::Accumulator => ReadWriteState::ReadUseless,
-                    AddressMode::Immediate => ReadWriteState::FetchImmediate,
-                    AddressMode::ZeroPage |
-                    AddressMode::ZeroPageIndexedX | AddressMode::ZeroPageIndexedY | 
-                    AddressMode::IndexedIndirectX | AddressMode::IndirectIndexedY => ReadWriteState::FetchZeroPageAddress,
-                    AddressMode::Relative | AddressMode::Indirect | 
-                    AddressMode::Absolute | AddressMode::AbsoluteIndexedX | AddressMode::AbsoluteIndexedY => ReadWriteState::FetchAddressLow
-                };
-                
-                match self.address_mode {
-                    AddressMode::Implicit | AddressMode::Accumulator => alu_state = AluState::ExecuteInstruction,
-                    _ => ()
-                }
-            },
+        let alu_state = match self.read_write_state {
+            ReadWriteState::FetchOpcode => self.process_fetch_opcode(),
 
             // Things that happen on cycle #2
-            ReadWriteState::FetchImmediate => {
-                self.fetch_immediate();
-                self.read_write_state = ReadWriteState::FetchOpcode;
-                alu_state = AluState::ExecuteInstruction;
-            },
-            ReadWriteState::FetchZeroPageAddress => {
-                self.fetch_zero_page();
-                self.read_write_state = match self.instruction.get_type() {
-                    InstructionType::Read | InstructionType::ReadModifyWrite => ReadWriteState::ReadZeroPage,
-                    InstructionType::Write => ReadWriteState::WriteRealEffective,
-                    _ => panic!("Zero page address should be either of type read/read-modify-write/write")
-                };
-            }
-            ReadWriteState::FetchAddressLow => {
-                self.fetch_address_low();
-                self.read_write_state = ReadWriteState::FetchAddressHigh;
-            }
+            ReadWriteState::FetchImmediate => self.process_fetch_immediate(),
+            ReadWriteState::FetchZeroPageAddress => self.process_fetch_zero_page(),
+            ReadWriteState::FetchAddressLow => self.process_fetch_address_low(),
 
             // Things that happen on cycle #3
-            // IDFK
-            _ => {}
+            ReadWriteState::ReadZeroPage => 
+            _ => AluState::Noop
         }
 
         self.oopsed = false;
@@ -149,6 +122,10 @@ impl Cpu {
         return self.read(self.program_counter.read_low(), self.program_counter.read_high());
     }
 
+    fn read_from_effective_address(&mut self) -> u8 {
+        return self.read(self.memory_address_register.read_low(), self.memory_address_register.read_high());
+    }
+
     fn write(&mut self, low_byte: u8, high_byte: u8, value: u8) {
         // TODO: implement address mapping
         self.ram.write(low_byte, high_byte, value);
@@ -157,6 +134,85 @@ impl Cpu {
     fn write_to_effective_address(&mut self, value: u8) {
         self.write(self.memory_address_register.read_low(), self.memory_address_register.read_high(), value);
     }
+
+    // get scammed
+
+    fn process_fetch_opcode(&mut self) -> AluState {
+        self.fetch_opcode();
+        self.read_write_state = match self.address_mode {
+            AddressMode::Implicit | AddressMode::Accumulator => ReadWriteState::ReadUseless,
+            AddressMode::Immediate => ReadWriteState::FetchImmediate,
+            AddressMode::ZeroPage |
+            AddressMode::ZeroPageIndexedX | AddressMode::ZeroPageIndexedY | 
+            AddressMode::IndexedIndirectX | AddressMode::IndirectIndexedY => ReadWriteState::FetchZeroPageAddress,
+            AddressMode::Relative | AddressMode::Indirect | 
+            AddressMode::Absolute | AddressMode::AbsoluteIndexedX | AddressMode::AbsoluteIndexedY => ReadWriteState::FetchAddressLow
+        };
+        
+        
+        let alu_state = match self.address_mode {
+            AddressMode::Implicit | AddressMode::Accumulator => AluState::ExecuteInstruction,
+            _ => AluState::Noop
+        };
+
+        return alu_state;
+    }
+
+    fn process_fetch_immediate(&mut self) -> AluState {
+        self.fetch_immediate();
+        self.read_write_state = ReadWriteState::FetchOpcode;
+        
+        return AluState::ExecuteInstruction;
+    }
+
+    fn process_fetch_zero_page(&mut self) -> AluState {
+        self.fetch_zero_page_address();
+        self.read_write_state = match self.instruction.get_type() {
+            InstructionType::Read | InstructionType::ReadModifyWrite => ReadWriteState::ReadZeroPage,
+            InstructionType::Write => ReadWriteState::WriteRealEffective,
+            _ => panic!("Zero page address should be either of type read/read-modify-write/write")
+        };
+
+        return AluState::Noop
+    }
+
+    fn process_fetch_address_low(&mut self) -> AluState {
+        self.fetch_address_low();
+        self.read_write_state = ReadWriteState::FetchAddressHigh;
+
+        return AluState::Noop;
+    }
+
+    fn process_fetch_address_high(&mut self) -> AluState {
+        self.fetch_address_high();
+        self.read_write_state = // something
+
+        return AluState::Noop;
+    }
+
+    fn process_read_zero_page(&mut self) -> AluState {
+        self.read_from_effective_address(); // put the memory value in the mdr;
+
+        let instruction_type = self.instruction.get_type();
+        self.read_write_state = match instruction_type {
+            InstructionType::Read => ReadWriteState::FetchOpcode, // this instruction has finished
+            InstructionType::ReadModifyWrite => ReadWriteState::WriteFakeEffective, // do the fake write
+            _ => panic!("Reading from a zero page effective address should be either of type read/read-modify-write")
+        };
+        
+        let alu_state = match instruction_type {
+            InstructionType::Read => AluState::ExecuteInstruction,
+            InstructionType::ReadModifyWrite => AluState::Noop,
+            _ => panic!("Reading from a zero page effective address should be either of type read/read-modify-write")
+        };
+
+        return alu_state
+    }
+
+    fn process
+
+
+    // fetch stuff
 
     fn fetch_opcode(&mut self) {
         let opcode = self.read_from_program_counter();
@@ -170,7 +226,7 @@ impl Cpu {
         self.read_from_program_counter();
     } 
 
-    fn fetch_zero_page(&mut self) {
+    fn fetch_zero_page_address(&mut self) {
         let address = self.read_from_program_counter();
 
         self.memory_address_register.write_high(0);
