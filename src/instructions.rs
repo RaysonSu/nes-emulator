@@ -84,7 +84,8 @@ pub enum InstructionType {
     Stack,
     Read,
     ReadModifyWrite,
-    Write
+    Write,
+    Jump
 }
 
 impl AddressMode {
@@ -123,8 +124,9 @@ impl Instruction {
             Lda | Ldx | Ldy | Eor | And | Ora | Adc | Sbc | Cmp | Bit | Lax | Nop | Las => InstructionType::Read,
             Asl | Lsr | Rol | Ror | Inc | Dec | Slo | Sre | Rla | Rra | Isc | Dcp => InstructionType::ReadModifyWrite,
             Sta | Stx | Sty | Sax | Ahx | Shx | Shy | Axs => InstructionType::Write,
-            Tas | Tax | Tay | Tsx | Txa | Txs | Tya | Jmp | Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvc | Bvs | Inx | Dex | Iny | Dey | Cpx | Cpy | Clc | Sec | Cli | Sei | Cld | Sed | Clv | Alr | Arr | Anc | Stp | Xaa => InstructionType::NoReadWrite,
-            Brk | Rti | Rts | Pha | Php | Pla | Plp | Jsr => InstructionType::Stack
+            Tas | Tax | Tay | Tsx | Txa | Txs | Tya | Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvc | Bvs | Inx | Dex | Iny | Dey | Cpx | Cpy | Clc | Sec | Cli | Sei | Cld | Sed | Clv | Alr | Arr | Anc | Stp | Xaa => InstructionType::NoReadWrite,
+            Brk | Rti | Rts | Pha | Php | Pla | Plp | Jsr => InstructionType::Stack,
+            Jmp => InstructionType::Jump,
         };
 
         return instruction_type;
