@@ -1,6 +1,4 @@
-from itertools import product
-
-# note: state transition diagram from https://mermaid.live/edit#pako:eNqtV11zojAU_SuZPNuOEqnVh91paz_HHWbsjha1DxSiMhXCROjW7fS_bz4uFiSlOl19gdyTc--5OQnwhn0WUNzD8xX74y89nqLf_VmMxO9sOqRegJxEIh7R0RFqIqZuxPUPdA4oGQijiAahl1LkBQGn63UYLxToogBqFWf3CwGrGLjUgfNpP4uiDeKyhDBepzzz05DF6GmT0gby4gDRV-pnImUh-qgozjTFxfSKpv4SvXirbM8pfZgCKpToCeUMJd6C6lok-grQ1fDRHx6mWsi1EfQRvzHGwzgQRQboQWFuUS3IVaC7AuYWIgIRcuqnCjAoA3QgR0qAUwAM6cpLwxdd40QHLqEtwiKq_4jNSy26y6JE4YeAl4NnT-sVy0DsvSlQ1jqqg2il408gWtG2ClfDrrR_55xFiM7nAiJlQd1f-QEaf13HoaHXFkCt6VgtbqCMq1yHnjz_GaWsOrc-_TUBTgKcYkq2So1Meyq52TItwnVKuZGrtBluC9q3udIljeWdXhmxdIImTJULdrfHbT5Y3RQqVNkKd3skdGsS3hlZBwVWQbaPFLFlYFEHFlhfzizaX95XF7VYOhDBSg5IgWgZLpYHMKFkla3F8RmxAFn2iVH7gHzebR0rNAYs4UBJCQtj6YhS4Q50wPluBxzogPP_OqAtv2OKvepTvWMsWevS2nlpppY6NS11iNFrTnt6Fb6W1ZlrqCRr1yRrG5MNC6dy3ieZVLd9COs3tKYXLNlUULJlxXYlnC24FyGfZdIMusVzlUDJ2Z1b0rgzuXzy3Nc_PcTDAUq9z61W4jZ3Lee2TG0rBau-Hx3iaF3iCEocWQeZeNeoDyajwmlWceXIMhllZH1ulJFlNMr4cL1j0Dv-nl73EL1jo96xWZNrMBWcY1qBCwpco6nKUDihXPK5U9V28VQnxFuGHPypT6gyE0hx2zVO_mr3lHgrJ5-vNrOupHYHl57lE6iHJZSLJVIL8CSuxJB6z4NmTeR4zIqhnMCanollhfl7pP5Y3wnJKYB9G8lPiAmpHptmNbiBFzwMcG_urda0gSPKI0_e4zdJNcPCbBGd4Z64DDz-PMOz-F1MSrx4wliEe-LlSEzjLFss85ssCcSXSz_0ZL4tggoD8wuZHPfsNrEVB-694VfcO2rZpHNsd0nXbneI3W5apIE3crzZPCatE7t5SmzrtNM66bw38F-VmBw3W91T8e-cdrvEblpWA4tvppTxX_oDTH2Hvf8D2KkymQ
+# note: state transition diagram from https://mermaid.live/edit#pako:eNqtV11zojAU_SuZPGtHAlrlYXesVmvHHWfsjha1DwhRmQphAnTrdvrfNyTBgkRqp-uTyT333K-TAG_QIS6GJtzsyR9nZ9MY_O6vAsB-3eUU2y6YhCniCdTroAEIX7D_P8CNRKUGz_ex69kxBrbrUhxFXrDloF4OpOW9-zkDyhtuheFm2U98_wBomoIXRDFNnNgjAVgfYlwDduAC_IqdhIXMWZ84RVdQ9JYDHDs78GLvkwtd-tJFVsGLXmBKQGhvscglRQ8kumyu_6FeLAoZKkEf9jul3QtclqQLHjlmBCpBFgfd5zAjaWEIj2In5oBxESAMGTIFTFAOMcV7O_ZeRJILYbiVfWEa4QMAZFPo0X3ihxw_lUy36W53He1JIst9UFqK5c4qMaLa-TmMKOuYiSVxA6HiDSU-wJsNw6S1yeQ_U4Vs_7CKQ0CHMtwQLed8xC6XL9ceWNvOM4hJ2bc6_FCXnLrkZC7JPlYyXVjJ3ZFp60UxpkquwpEY5Wo_xop3OEhXYjZseozGi7kUTg_JKNssHw1uKh2I-wsCWhUB75Ws4xwrI7ukFHZw5FDHSOo_9cyfgXRdHmo-dUkkJznWc0Q7b7v7AhMI90nELlGfuAA1W8rax_r5bgtbrjFSEpPvFjeRxU3-X3FCzSfzvig_3hZCwkikZmSpqbo1qejWRFfKaGIsB95rsTp1DqVgRkUwQxlsipY9Eh540VmfeFDWjHwjQkq21PaBQ5KAnWnRvA0fBU_01LeQ_Ylz8bp4yLRRcFGXeXRR1VkwljU4Q1-Szqk8HlXykNdDSQszpBrPDJ0fzwwpxzP_XtLWV5KeK5OeqxOzlFMLifcxYEueWUs__2TnMrN5geyZmm7-FGe2yCQztIwKqXymugJv6S5w-CEQmVQqv_DgWsh8SIgp6zzv65r9Y1v8zUbe7Yt0PyB5U0aAll02Lel_QeiPsS30jEKyHy3ZyVro5YtEXQ2swS31XGhu7H2Ea9DH1LfTNXxLqVaQacjHK2iyv65Nn1dwFbwzp9AOFoT40GRvAsyNkmS7yxZJ6LKX9b5np_GOCMx0SXtpcGi2tc4154DmG3yFZl1roOurRpPt620NtXW9Bg_Q7Fw19GZbbzU6htHRtE7nvQb_8qjaVRtpGmq2W0anjVqNJqpB9o0QE_pLfHDw7473f4EO2q4
 
 A = "State::ReadOpcode"
 B = "State::Implied"
@@ -17,19 +15,13 @@ J = "State::ZeroPageIndexedY"
 L = "State::IndexedIndirectStart"
 L2 = "State::IndexedIndirectLowByte"
 L3 = "State::IndexedIndirectHighByte"
-O = "State::IndirectIndexedStart"
 O2 = "State::IndirectIndexedLowByte"
 O3 = "State::IndirectIndexedHighByte"
 O4 = "State::FixHighByte"
-R = "State::JumpStart"
 R2 = "State::JumpHighByte"
-S = "State::AbslouteStart"
 S2 = "State::AbslouteAddressHighByte"
-V = "State::AbslouteIndexedXStart"
 V2 = "State::AbslouteIndexedXHighByte"
-W = "State::AbslouteIndexedYStart"
 W2 = "State::AbslouteIndexedYHighByte"
-Y = "State::AbslouteIndirectStart"
 Y2 = "State::AbslouteIndirectHighByte"
 Y3 = "State::AbslouteIndirectLowByteActual"
 Y4 = "State::AbslouteIndirectHighByteActual"
@@ -37,7 +29,7 @@ Z = "State::Relative"
 Z2 = "State::RelativeLowByte"
 Z3 = "State::RelativeHighByte"
 
-STATES = [A, B, C, D, E, F, G, G2, G3, H, I, J, L, L2, L3, O, O2, O3, O4, R, R2, S, S2, V, V2, W, W2, Y, Y2, Y3, Y4, Z, Z2, Z3]
+STATES = [A, B, C, D, E, F, G, G2, G3, H, I, J, L, L2, L3, O2, O3, O4, R2, S2, V2, W2, Y2, Y3, Y4, Z, Z2, Z3]
 
 INSTRUCTIONS = ["BRK", "ORA (d,x)", "STP", "SLO (d,x)", "NOP d", "ORA d ", "ASL d", "SLO d", "PHP", "ORA #i ", "ASL ", "ANC #i", "NOP a", "ORA a ", "ASL a", "SLO a", "BPL *+d", "ORA (d),y", "STP", "SLO (d),y", "NOP d,x", "ORA d,x ", "ASL d,x", "SLO d,x", "CLC", "ORA a,y", "NOP", "SLO a,y", "NOP a,x", "ORA a,x ", "ASL a,x", "SLO a,x", "JSR a ", "AND (d,x)", "STP", "RLA (d,x)", "BIT d ", "AND d", "ROL d", "RLA d", "PLP ", "AND #i", "ROL ", "ANC #i", "BIT a ", "AND a", "ROL a", "RLA a", "BMI *+d ", "AND (d),y", "STP", "RLA (d),y", "NOP d,x ", "AND d,x", "ROL d,x", "RLA d,x", "SEC ", "AND a,y", "NOP", "RLA a,y", "NOP a,x ", "AND a,x", "ROL a,x", "RLA a,x", "RTI", "EOR (d,x)", "STP", "SRE (d,x)", "NOP d", "EOR d", "LSR d", "SRE d", "PHA", "EOR #i", "LSR ", "ALR #i", "JMP a", "EOR a", "LSR a", "SRE a", "BVC *+d", "EOR (d),y", "STP", "SRE (d),y", "NOP d,x", "EOR d,x", "LSR d,x", "SRE d,x", "CLI", "EOR a,y", "NOP", "SRE a,y", "NOP a,x", "EOR a,x", "LSR a,x", "SRE a,x", "RTS ", "ADC (d,x)", "STP", "RRA (d,x)", "NOP d ", "ADC d", "ROR d", "RRA d", "PLA ", "ADC #i", "ROR ", "ARR #i", "JMP (a) ", "ADC a", "ROR a", "RRA a", "BVS *+d ", "ADC (d),y", "STP", "RRA (d),y", "NOP d,x ", "ADC d,x", "ROR d,x", "RRA d,x", "SEI ", "ADC a,y", "NOP", "RRA a,y", "NOP a,x ", "ADC a,x", "ROR a,x", "RRA a,x", "NOP #i", "STA (d,x)", "NOP #i", "SAX (d,x)", "STY d", "STA d", "STX d", "SAX d ", "DEY", "NOP #i", "TXA", "XAA #i", "STY a", "STA a", "STX a", "SAX a", "BCC *+d", "STA (d),y", "STP ", "AHX (d),y", "STY d,x", "STA d,x", "STX d,y", "SAX d,y", "TYA", "STA a,y", "TXS", "TAS a,y", "SHY a,x", "STA a,x", "SHX a,y ", "AHX a,y", "LDY #i", "LDA (d,x)", "LDX #i", "LAX (d,x)", "LDY d", "LDA d", "LDX d", "LAX d", "TAY", "LDA #i", "TAX", "LAX #i", "LDY a", "LDA a", "LDX a", "LAX a", "BCS *+d", "LDA (d),y", "STP", "LAX (d),y", "LDY d,x", "LDA d,x", "LDX d,y", "LAX d,y", "CLV", "LDA a,y", "TSX", "LAS a,y", "LDY a,x", "LDA a,x", "LDX a,y", "LAX a,y", "CPY #i", "CMP (d,x)", "NOP #i ", "DCP (d,x)", "CPY d", "CMP d ", "DEC d ", "DCP d", "INY", "CMP #i ", "DEX ", "AXS #i", "CPY a", "CMP a ", "DEC a ", "DCP a", "BNE *+d", "CMP (d),y", "STP ", "DCP (d),y", "NOP d,x", "CMP d,x ", "DEC d,x ", "DCP d,x", "CLD", "CMP a,y", "NOP ", "DCP a,y", "NOP a,x", "CMP a,x ", "DEC a,x ", "DCP a,x", "CPX #i", "SBC (d,x)", "NOP #i", "ISC (d,x)", "CPX d", "SBC d", "INC d", "ISC d", "INX", "SBC #i", "NOP", "SBC #i", "CPX a", "SBC a", "INC a", "ISC a", "BEQ *+d", "SBC (d),y", "STP", "ISC (d),y", "NOP d,x", "SBC d,x", "INC d,x", "ISC d,x", "SED", "SBC a,y", "NOP", "ISC a,y", "NOP a,x", "SBC a,x", "INC a,x", "ISC a,x"]
 
@@ -114,6 +106,9 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # A -- immediate addressing --> C
         elif ins in IMMEDIATE:
             return C
+        # note this was wrong in the first version
+        elif ins in RELATIVE:
+            return Z
         # A -- 1 opcode --> D
         elif ins in ONE_OPCODE:
             return D
@@ -147,26 +142,23 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
             return L
         # D -- Indirect Indexed --> O
         elif ins in INDIRECT_INDEXED:
-            return O
-        # D -- Relative --> Z
-        elif ins in RELATIVE:
-            return Z
+            return O2
     elif cur == E:
         # E[Fetch low byte of address] -- Jump --> R
         if ins == 0x4C:
-            return R
+            return R2
         # E -- Absloute --> S
         elif ins in ABSLOUTE:
-            return S
+            return S2
         # E -- Absloute indexed X --> V
         elif ins in ABSLOUTE_INDEXED_X:
-            return V
+            return V2
         # E -- Absloute indexed Y --> W
         elif ins in ABSLOUTE_INDEXED_Y:
-            return W
+            return W2
         # E -- Absloute indirect Jump --> Y
         elif ins in ABSLOUTE_INDIRECT:
-            return Y
+            return Y2
     elif cur == F:
         # F[Read from effective address, and execute instruction] --> A 
         return A
@@ -215,9 +207,6 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # L3 -- write --> H 
         elif ins in WRITE:
             return H
-    elif cur == O:
-        # O[Fetch pointer address] --> O2
-        return O2
     elif cur == O2:
         # O2[Fetch the low byte of the effective address from address] --> O3
         return O3
@@ -244,15 +233,9 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # O4 -- write --> H
         elif ins in WRITE:
             return H
-    elif cur == R:
-        # R[Fetch low address byte] --> R2
-        return R2
     elif cur == R2:
         # R2[Copy low address byte to low byte of program counter, and fetch high address byte to high byte of program counter] --> A 
         return A
-    elif cur == S:
-        # S[Fetch low byte of address] --> S2
-        return S2
     elif cur == S2:
         # S2[Fetch high byte of address] -- read --> F 
         if ins in READ:
@@ -263,9 +246,6 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # S2 -- write --> H 
         elif ins in WRITE:
             return H
-    elif cur == V:
-        # V[Fetch the low byte of the effective address] --> V2
-        return V2
     elif cur == V2:
         # V2[Fetch the high byte of the effective address, and add index X to the low byte of it] -- oops --> O4
         if alt:
@@ -279,9 +259,6 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # V2 -- write --> H
         elif ins in WRITE:
             return H
-    elif cur == W:
-        # W[Fetch the low byte of the effective address] --> W2
-        return W2
     elif cur == W2:
         # W2[Fetch the high byte of the effective address, and add index Y to the low byte of it] -- oops --> O4
         if alt:
@@ -292,9 +269,6 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # W2 -- write --> H
         elif ins in WRITE:
             return H
-    elif cur == Y:
-        # Y[Fetch low byte of pointer] --> Y2
-        return Y2
     elif cur == Y2:
         # Y2[Fetch high byte of pointer] --> Y3
         return Y3

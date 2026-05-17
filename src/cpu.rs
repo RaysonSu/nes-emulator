@@ -1,6 +1,6 @@
 use crate::{instructions::Instruction, ram::Ram, register::{Register8, Register16}, transition::{State, transition}};
 
-struct Cpu {
+pub struct Cpu {
     ram: Ram,
     accumulator: Register8,
     index_x: Register8,
@@ -13,7 +13,8 @@ struct Cpu {
     alu_register: Register8,
     instruction_register: Register8,
     state: State,
-    instruction: Instruction
+    instruction: Instruction,
+    invert_oops: bool
 }
 
 impl Cpu {
@@ -31,7 +32,8 @@ impl Cpu {
             alu_register: Register8::new(),
             instruction_register: Register8::new(),
             state: State::ReadOpcode,
-            instruction: Instruction::Nop
+            instruction: Instruction::Nop,
+            invert_oops: false
         }
     }
 
@@ -41,7 +43,7 @@ impl Cpu {
             State::Implied => self.implied(),
             State::Immediate => self.immediate(),
             State::OneOperandStart => self.one_operand(),
-            // State::TwoOperandStart => self.two_operand(),
+            State::TwoOperandStart => self.two_operand(),
             State::ReadStart => self.start_read(),
             State::ReadWriteStart => self.start_read_write(),
             State::ReadWriteExecute => self.read_write_execute(),
@@ -49,29 +51,23 @@ impl Cpu {
             State::WriteStart => self.start_write(),
             State::ZeroPageIndexedX => self.zero_page_indexed_x(),
             State::ZeroPageIndexedY => self.zero_page_indexed_y(),
-            // State::IndexedIndirectStart => self.indexed_indirect_pointer(),
-            // State::IndexedIndirectLowByte => self.indexed_indirect_low_byte(),
-            // State::IndexedIndirectHighByte => self.indexed_indirect_high_byte(),
-            // State::IndirectIndexedStart => self.indirect_indexed_pointer(),
-            // State::IndirectIndexedLowByte => self.indirect_indexed_low_byte(),
-            // State::IndirectIndexedHighByte => self.indirect_indexed_high_byte(),
-            // State::FixHighByte => self.fix_high_byte(),
-            // State::JumpStart => self.jump_low_byte(),
-            // State::JumpHighByte => self.jump_high_byte(),
-            // State::AbslouteStart => self.absloute_address_low_byte(),
-            // State::AbslouteAddressHighByte => self.absloute_address_high_byte(),
-            // State::AbslouteIndexedXStart => self.absloute_indexed_x_low_byte(),
-            // State::AbslouteIndexedXHighByte => self.absloute_indexed_x_high_byte(), 
-            // State::AbslouteIndexedYStart => self.absloute_indexed_y_low_byte(),
-            // State::AbslouteIndexedYHighByte => self.absloute_indexed_y_high_byte(),
-            // State::AbslouteIndirectStart => self.absloute_indirect_pointer_low_byte(),
-            // State::AbslouteIndirectHighByte => self.absloute_indirect_pointer_high_byte(),
-            // State::AbslouteIndirectLowByteActual => self.absloute_indirect_low_byte(),
-            // State::AbslouteIndirectHighByteActual => self.absloute_indirect_high_byte(),
-            // State::Relative => self.relative_pointer(),
-            // State::RelativeLowByte => self.relative_low_byte(),
-            // State::RelativeHighByte => self.relative_high_byte()
-            _ => panic!("State not implented!")
+            State::IndexedIndirectStart => self.indexed_indirect_pointer(),
+            State::IndexedIndirectLowByte => self.indexed_indirect_low_byte(),
+            State::IndexedIndirectHighByte => self.indexed_indirect_high_byte(),
+            State::IndirectIndexedLowByte => self.indirect_indexed_low_byte(),
+            State::IndirectIndexedHighByte => self.indirect_indexed_high_byte(),
+            State::FixHighByte => self.fix_high_byte(),
+            State::JumpHighByte => self.jump_high_byte(),
+            State::AbslouteAddressHighByte => self.absloute_address_high_byte(),
+            State::AbslouteIndexedXHighByte => self.absloute_indexed_x_high_byte(), 
+            State::AbslouteIndexedYHighByte => self.absloute_indexed_y_high_byte(),
+            State::AbslouteIndirectHighByte => self.absloute_indirect_pointer_high_byte(),
+            State::AbslouteIndirectLowByteActual => self.absloute_indirect_low_byte(),
+            State::AbslouteIndirectHighByteActual => self.absloute_indirect_high_byte(),
+            State::Relative => self.relative_pointer(),
+            State::RelativeLowByte => self.relative_low_byte(),
+            State::RelativeHighByte => self.relative_high_byte()
+            // _ => panic!("State not implented!")
         };
 
         self.state = match transition(&self.state, self.instruction_register.read(), alt) {
@@ -93,7 +89,7 @@ impl Cpu {
         return self.read(self.program_counter.read_low(), self.program_counter.read_high());
     }
 
-    fn read_from_effective_address(&mut self) -> u8 {
+    fn read_from_memory_address_register(&mut self) -> u8 {
         return self.read(self.memory_address_register.read_low(), self.memory_address_register.read_high());
     }
 
@@ -102,7 +98,7 @@ impl Cpu {
         self.ram.write(low_byte, high_byte, value);
     }
 
-    fn write_to_effective_address(&mut self, value: u8) {
+    fn write_to_memory_address_register(&mut self, value: u8) {
         self.write(self.memory_address_register.read_low(), self.memory_address_register.read_high(), value);
     }
 
@@ -114,6 +110,8 @@ impl Cpu {
 
         self.instruction_register.write(opcode);
         self.program_counter.increment();
+
+        self.invert_oops = false; // TODO: fix this shitty bodge
         return false;
     }
 
@@ -128,11 +126,11 @@ impl Cpu {
             Instruction::Lsr => self.logical_shift_right_accumulator(),
             Instruction::Ror => self.rotate_right_accumulator(),
             Instruction::Txa => self.trasnfer_index_x_to_accumulator(),
-            Instruction::Tya => self.trasnfer_index_y_to_accumulator(),
+            Instruction::Tya => self.transfer_index_y_to_accumulator(),
             Instruction::Tax => self.transfer_accumulator_to_index_x(),
             Instruction::Tay => self.transfer_accumulator_to_index_y(),
             Instruction::Tsx => self.transfer_stack_pointer_to_index_x(),
-            Instruction::Txs => self.trasnfer_index_x_to_stack_pointer(),
+            Instruction::Txs => self.transfer_index_x_to_stack_pointer(),
             Instruction::Clc => self.clear_carry(),
             Instruction::Clv => self.clear_overflow(),
             Instruction::Cli => self.clear_interrupt_disable(),
@@ -177,8 +175,16 @@ impl Cpu {
         return false;
     }
 
+    fn two_operand(&mut self) -> bool {
+        let value = self.read_from_program_counter();
+        self.memory_address_register.write_low(value);
+        self.program_counter.increment();
+
+        return false;
+    }
+
     fn start_read(&mut self) -> bool {
-        let value = self.read_from_effective_address();
+        let value = self.read_from_memory_address_register();
         match self.instruction {
             Instruction::Nop => (), // note: unofficial
             Instruction::Lda => self.load_accumulator(value),
@@ -200,13 +206,13 @@ impl Cpu {
     }
 
     fn start_read_write(&mut self) -> bool {
-        self.read_from_effective_address();
+        self.read_from_memory_address_register();
         return false;
     }
 
     fn read_write_execute(&mut self) -> bool {
-        let value = self.read_from_effective_address();
-        self.write_to_effective_address(value); // fake write
+        let value = self.read_from_memory_address_register();
+        self.write_to_memory_address_register(value); // fake write
 
         match self.instruction {
             Instruction::Asl => self.arithmetic_shift_left(value),
@@ -223,7 +229,7 @@ impl Cpu {
 
     fn read_write_commit(&mut self) -> bool {
         let value = self.alu_register.read();
-        self.write_to_effective_address(value);
+        self.write_to_memory_address_register(value);
 
         return false;
     }
@@ -236,7 +242,7 @@ impl Cpu {
             _ => panic!("Instruction {:?} is not a write instruction", self.instruction)
         };
 
-        self.write_to_effective_address(value);
+        self.write_to_memory_address_register(value);
 
         return false;
     }
@@ -259,6 +265,192 @@ impl Cpu {
         return false;
     }
 
+    fn indexed_indirect_pointer(&mut self) -> bool {
+        let mut effective_address = self.memory_address_register.read_low();
+        let index_x = self.index_x.read();
+        effective_address = effective_address.wrapping_add(index_x);
+
+        self.memory_address_register.write_low(effective_address);
+
+        return false;
+    }
+
+    fn indexed_indirect_low_byte(&mut self) -> bool {
+        self.read_from_memory_address_register();
+        let ptr = self.memory_address_register.read_low();
+        self.memory_address_register.write_low(ptr.wrapping_add(1));
+
+        return false;
+    }
+
+    fn indexed_indirect_high_byte(&mut self) -> bool {
+        let low_byte = self.memory_data_register.read();
+        let high_byte = self.read_from_memory_address_register();
+
+        self.memory_address_register.write_low(low_byte);
+        self.memory_address_register.write_high(high_byte);
+
+        return false;
+    }
+
+    fn indirect_indexed_low_byte(&mut self) -> bool {
+        self.read_from_memory_address_register();
+        let ptr = self.memory_address_register.read_low();
+        self.memory_address_register.write_low(ptr.wrapping_add(1));
+
+        return false;
+    }
+
+    fn indirect_indexed_high_byte(&mut self) -> bool {
+        let low_byte = self.memory_data_register.read();
+        let high_byte = self.read_from_memory_address_register();
+
+        let oopsed = (low_byte as u16) + (self.index_y.read() as u16) >= 0x100;
+        let new_low_byte = low_byte.wrapping_add(self.index_y.read());
+
+        self.memory_address_register.write_low(new_low_byte);
+        self.memory_address_register.write_high(high_byte);
+
+        return oopsed;
+    }
+
+    fn fix_high_byte(&mut self) -> bool {
+        let high_byte = self.memory_address_register.read_high();
+        if self.invert_oops {
+            self.memory_address_register.write_high(high_byte.wrapping_sub(1));
+        } else {
+            self.memory_address_register.write_high(high_byte.wrapping_add(1));
+        }
+
+        return false;
+    }
+
+    fn jump_high_byte(&mut self) -> bool {
+        let low_byte = self.memory_address_register.read_low();
+        let high_byte = self.read_from_program_counter();
+
+        self.program_counter.write_low(low_byte);
+        self.program_counter.write_high(high_byte);
+
+        return false;
+    }
+
+    fn absloute_address_high_byte(&mut self) -> bool {
+        let high_byte = self.read_from_program_counter();
+        self.memory_address_register.write_high(high_byte);
+        self.program_counter.increment();
+
+        return false;
+    }
+
+    fn absloute_indexed_x_high_byte(&mut self) -> bool {
+        let low_byte = self.memory_data_register.read();
+        let high_byte = self.read_from_program_counter();
+        let index_x = self.index_x.read();
+
+        let oopsed = (low_byte as u16) + (index_x as u16) >= 0x100;
+        let new_low_byte = low_byte.wrapping_add(index_x);
+
+        self.memory_address_register.write_low(new_low_byte);
+        self.memory_address_register.write_high(high_byte);
+
+        self.program_counter.increment();
+        return oopsed;
+    }
+
+    fn absloute_indexed_y_high_byte(&mut self) -> bool {
+        let low_byte = self.memory_data_register.read();
+        let high_byte = self.read_from_program_counter();
+        let index_y = self.index_y.read();
+
+        let oopsed = (low_byte as u16) + (index_y as u16) >= 0x100;
+        let new_low_byte = low_byte.wrapping_add(index_y);
+
+        self.memory_address_register.write_low(new_low_byte);
+        self.memory_address_register.write_high(high_byte);
+
+        self.program_counter.increment();
+        return oopsed;
+    }
+    
+    fn absloute_indirect_pointer_high_byte(&mut self) -> bool {
+        let high_byte = self.read_from_program_counter();
+        self.memory_address_register.write_high(high_byte);
+        self.program_counter.increment();
+
+        return false;
+    }
+
+    fn absloute_indirect_low_byte(&mut self) -> bool {
+        self.read_from_memory_address_register();
+        
+        let low_byte = self.memory_address_register.read_low();
+        self.memory_address_register.write_low(low_byte.wrapping_add(1)); // high byte is not handled - this is a bug in the original cpu!
+
+        return false;
+    }
+
+    fn absloute_indirect_high_byte(&mut self) -> bool {
+        let low_byte = self.memory_data_register.read();
+        let high_byte = self.read_from_memory_address_register();
+
+        self.program_counter.write_low(low_byte);
+        self.program_counter.write_high(high_byte);
+
+        return false;
+    }  
+
+    fn relative_pointer(&mut self) -> bool {
+        self.read_from_program_counter();
+        
+        let branch = match self.instruction {
+            Instruction::Bcs => self.status_register.read_bit(0),
+            Instruction::Bcc => !self.status_register.read_bit(0),
+            Instruction::Beq => self.status_register.read_bit(1),
+            Instruction::Bne => !self.status_register.read_bit(1),
+            Instruction::Bvs => self.status_register.read_bit(6),
+            Instruction::Bvc => !self.status_register.read_bit(6),
+            Instruction::Bmi => self.status_register.read_bit(7),
+            Instruction::Bpl => !self.status_register.read_bit(7),
+            _ => panic!("Instruction {:?} is not a branch instrcution", self.instruction)
+        };
+
+        self.program_counter.increment();
+
+        return branch
+    }
+
+    fn relative_low_byte(&mut self) -> bool {
+        let branch_amount = self.memory_data_register.read().cast_signed();
+        let program_counter_low_byte = self.program_counter.read_low();
+        
+        let new_low_byte = (program_counter_low_byte as i16) + (branch_amount as i16);
+        let mut alt = false;
+        
+        if new_low_byte < 0x00 {
+            self.invert_oops = true;
+            alt = true;
+        } else if new_low_byte >= 0x100 {
+            alt = true;
+        }
+
+        self.program_counter.write_low(program_counter_low_byte.wrapping_add_signed(branch_amount));
+
+        return alt;
+    }
+
+    fn relative_high_byte(&mut self) -> bool {
+        let high_byte = self.program_counter.read_high();
+        
+        if self.invert_oops {
+            self.program_counter.write_high(high_byte.wrapping_sub(1));
+        } else {
+            self.program_counter.write_high(high_byte.wrapping_add(1));
+        }
+
+        return false;
+    }
+    
     // instructions
 
     fn add_with_carry(&mut self, memory: u8) {
@@ -592,7 +784,7 @@ impl Cpu {
         self.accumulator.write(index_x);
     }
 
-    fn trasnfer_index_x_to_stack_pointer(&mut self) {
+    fn transfer_index_x_to_stack_pointer(&mut self) {
         let index_x = self.index_x.read();
 
         self.status_register.write_bit(1, index_x == 0);
@@ -601,7 +793,7 @@ impl Cpu {
         self.stack_pointer.write(index_x);
     }
 
-    fn trasnfer_index_y_to_accumulator(&mut self) {
+    fn transfer_index_y_to_accumulator(&mut self) {
         let index_y = self.index_y.read();
 
         self.status_register.write_bit(1, index_y == 0);
@@ -785,6 +977,7 @@ mod tests {
         // note: i can't test for the extra write
         cpu.cycle();
         assert_eq!(cpu.state, State::ReadWriteCommit);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
         assert_eq!(cpu.status_register.read(), 0b00000010);
         assert_eq!(cpu.ram.read(0x79, 0x00), 0xff); // write not commited yet
 
@@ -792,5 +985,187 @@ mod tests {
         assert_eq!(cpu.state, State::ReadOpcode);
         assert_eq!(cpu.program_counter.read(), 0x0002);
         assert_eq!(cpu.ram.read(0x79, 0x00), 0x00);
+    }
+
+    #[test]
+    fn test_sta_indexed_indirect() {
+        let mut cpu = Cpu::new();
+
+        // write STA ($23,x) to ram
+        cpu.ram.write(0x00, 0x00, 0x81);
+        cpu.ram.write(0x01, 0x00, 0x79);
+        cpu.ram.write(0x35, 0x00, 0x12);
+        cpu.ram.write(0x36, 0x00, 0x06);
+        cpu.index_x.write(0xbc);
+        cpu.accumulator.write(0xa3);
+
+        // pointer = 0x79 + 0xbc = 0x35
+        // effective address = 0x0612 ($36 $35)
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::OneOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+        
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndexedIndirectStart);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read_low(), 0x79);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndexedIndirectLowByte);
+        assert_eq!(cpu.memory_address_register.read(), 0x0035);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndexedIndirectHighByte);
+        assert_eq!(cpu.memory_data_register.read(), 0x12);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::WriteStart);
+        assert_eq!(cpu.memory_address_register.read(), 0x0612);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.ram.read(0x12, 0x06), 0xa3)
+    }
+
+    #[test]
+    fn test_jmp_absloute_and_indirect() {
+        let mut cpu = Cpu::new();
+
+        // write JMP $0623 to ram
+        cpu.ram.write(0x00, 0x00, 0x4c);
+        cpu.ram.write(0x01, 0x00, 0x23);
+        cpu.ram.write(0x02, 0x00, 0x06);
+        
+        // write a second JMP ($04ff) that crosses page boundaries
+        // this should jump to $0288
+        cpu.ram.write(0x23, 0x06, 0x6c);
+        cpu.ram.write(0x24, 0x06, 0xff);
+        cpu.ram.write(0x25, 0x06, 0x04);
+        cpu.ram.write(0xff, 0x04, 0x88);
+        cpu.ram.write(0x00, 0x04, 0x02);
+
+        // first instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::JumpHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read_low(), 0x23);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0623);
+
+        // second instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0624);
+        
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbslouteIndirectHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0625);
+        assert_eq!(cpu.memory_address_register.read_low(), 0xff);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbslouteIndirectLowByteActual);
+        assert_eq!(cpu.memory_address_register.read(), 0x04ff);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbslouteIndirectHighByteActual);
+        assert_eq!(cpu.memory_data_register.read(), 0x88);
+        assert_eq!(cpu.memory_address_register.read(), 0x0400);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0288);
+    }
+
+    #[test]
+    fn test_bvs() {
+        let mut cpu = Cpu::new();
+
+        // write BVS $10 (that will not be taken)
+        cpu.ram.write(0x00, 0x00, 0x70);
+        cpu.ram.write(0x01, 0x00, 0x10);
+        
+        // write BVS $7f (that will be taken)
+        cpu.ram.write(0x02, 0x00, 0x70);
+        cpu.ram.write(0x03, 0x00, 0x7f);
+
+        // write BVS $7f (that crosses page boundary)
+        cpu.ram.write(0x83, 0x00, 0x70);
+        cpu.ram.write(0x84, 0x00, 0x7f);
+
+        // write BVS $80 (that crosses page boundary backwards)
+        cpu.ram.write(0x04, 0x01, 0x70);
+        cpu.ram.write(0x05, 0x01, 0x80);
+
+        // so pc should be $0086 after this
+        
+        // the BVS $10 instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Relative);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        // branch not taken, so continue to next instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+
+        // fake the overflow flag being set
+        cpu.status_register.set_bit(6);
+        
+        // the (first) BVS $7f instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Relative);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::RelativeLowByte);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0083);
+
+        // the (second) BVS $7f instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Relative);
+        assert_eq!(cpu.program_counter.read(), 0x0084);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::RelativeLowByte);
+        assert_eq!(cpu.program_counter.read(), 0x0085);
+
+        // cpu fucked up
+        cpu.cycle();
+        assert_eq!(cpu.state, State::RelativeHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+        
+        // fix it
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0104);
+
+        // the BVS $80 instruction
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Relative);
+        assert_eq!(cpu.program_counter.read(), 0x0105);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::RelativeLowByte);
+        assert_eq!(cpu.program_counter.read(), 0x0106);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::RelativeHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0186);
+        
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0086);
     }
 }
