@@ -14,12 +14,13 @@ pub struct Cpu {
     instruction_register: Register8,
     state: State,
     instruction: Instruction,
-    invert_oops: bool
+    oops_amount: i8
 }
 
+// core methods
 impl Cpu {
     pub fn new() -> Cpu {
-        return Cpu { 
+        let mut res = Cpu { 
             ram: Ram::new(),
             accumulator: Register8::new(),
             index_x: Register8::new(),
@@ -33,8 +34,11 @@ impl Cpu {
             instruction_register: Register8::new(),
             state: State::ReadOpcode,
             instruction: Instruction::Nop,
-            invert_oops: false
-        }
+            oops_amount: 0
+        };
+
+        res.status_register.set_bit(5);
+        return res;
     }
 
     pub fn cycle(&mut self) {
@@ -58,12 +62,12 @@ impl Cpu {
             State::IndirectIndexedHighByte => self.indirect_indexed_high_byte(),
             State::FixHighByte => self.fix_high_byte(),
             State::JumpHighByte => self.jump_high_byte(),
-            State::AbslouteAddressHighByte => self.absloute_address_high_byte(),
-            State::AbslouteIndexedXHighByte => self.absloute_indexed_x_high_byte(), 
-            State::AbslouteIndexedYHighByte => self.absloute_indexed_y_high_byte(),
-            State::AbslouteIndirectHighByte => self.absloute_indirect_pointer_high_byte(),
-            State::AbslouteIndirectLowByteActual => self.absloute_indirect_low_byte(),
-            State::AbslouteIndirectHighByteActual => self.absloute_indirect_high_byte(),
+            State::AbsoluteAddressHighByte => self.absolute_address_high_byte(),
+            State::AbsoluteIndexedXHighByte => self.absolute_indexed_x_high_byte(), 
+            State::AbsoluteIndexedYHighByte => self.absolute_indexed_y_high_byte(),
+            State::AbsoluteIndirectHighByte => self.absolute_indirect_pointer_high_byte(),
+            State::AbsoluteIndirectLowByteActual => self.absolute_indirect_low_byte(),
+            State::AbsoluteIndirectHighByteActual => self.absolute_indirect_high_byte(),
             State::Relative => self.relative_pointer(),
             State::RelativeLowByte => self.relative_low_byte(),
             State::RelativeHighByte => self.relative_high_byte()
@@ -101,9 +105,10 @@ impl Cpu {
     fn write_to_memory_address_register(&mut self, value: u8) {
         self.write(self.memory_address_register.read_low(), self.memory_address_register.read_high(), value);
     }
+}
 
-    // do states
-
+// do states
+impl Cpu {
     fn read_opcode(&mut self) -> bool {
         let opcode = self.read_from_program_counter();
         self.instruction = Instruction::from_opcode(opcode);
@@ -111,7 +116,7 @@ impl Cpu {
         self.instruction_register.write(opcode);
         self.program_counter.increment();
 
-        self.invert_oops = false; // TODO: fix this shitty bodge
+        self.oops_amount = 0; // TODO: fix this shitty bodge
         return false;
     }
 
@@ -311,16 +316,14 @@ impl Cpu {
         self.memory_address_register.write_low(new_low_byte);
         self.memory_address_register.write_high(high_byte);
 
+        if oopsed { self.oops_amount = 1 }
+
         return oopsed;
     }
 
     fn fix_high_byte(&mut self) -> bool {
         let high_byte = self.memory_address_register.read_high();
-        if self.invert_oops {
-            self.memory_address_register.write_high(high_byte.wrapping_sub(1));
-        } else {
-            self.memory_address_register.write_high(high_byte.wrapping_add(1));
-        }
+        self.memory_address_register.write_high(high_byte.wrapping_add_signed(self.oops_amount));
 
         return false;
     }
@@ -335,7 +338,7 @@ impl Cpu {
         return false;
     }
 
-    fn absloute_address_high_byte(&mut self) -> bool {
+    fn absolute_address_high_byte(&mut self) -> bool {
         let high_byte = self.read_from_program_counter();
         self.memory_address_register.write_high(high_byte);
         self.program_counter.increment();
@@ -343,7 +346,7 @@ impl Cpu {
         return false;
     }
 
-    fn absloute_indexed_x_high_byte(&mut self) -> bool {
+    fn absolute_indexed_x_high_byte(&mut self) -> bool {
         let low_byte = self.memory_data_register.read();
         let high_byte = self.read_from_program_counter();
         let index_x = self.index_x.read();
@@ -354,11 +357,13 @@ impl Cpu {
         self.memory_address_register.write_low(new_low_byte);
         self.memory_address_register.write_high(high_byte);
 
+        if oopsed { self.oops_amount = 1 };
+
         self.program_counter.increment();
         return oopsed;
     }
 
-    fn absloute_indexed_y_high_byte(&mut self) -> bool {
+    fn absolute_indexed_y_high_byte(&mut self) -> bool {
         let low_byte = self.memory_data_register.read();
         let high_byte = self.read_from_program_counter();
         let index_y = self.index_y.read();
@@ -369,11 +374,13 @@ impl Cpu {
         self.memory_address_register.write_low(new_low_byte);
         self.memory_address_register.write_high(high_byte);
 
+        if oopsed { self.oops_amount = 1 };
+
         self.program_counter.increment();
         return oopsed;
     }
     
-    fn absloute_indirect_pointer_high_byte(&mut self) -> bool {
+    fn absolute_indirect_pointer_high_byte(&mut self) -> bool {
         let high_byte = self.read_from_program_counter();
         self.memory_address_register.write_high(high_byte);
         self.program_counter.increment();
@@ -381,7 +388,7 @@ impl Cpu {
         return false;
     }
 
-    fn absloute_indirect_low_byte(&mut self) -> bool {
+    fn absolute_indirect_low_byte(&mut self) -> bool {
         self.read_from_memory_address_register();
         
         let low_byte = self.memory_address_register.read_low();
@@ -390,7 +397,7 @@ impl Cpu {
         return false;
     }
 
-    fn absloute_indirect_high_byte(&mut self) -> bool {
+    fn absolute_indirect_high_byte(&mut self) -> bool {
         let low_byte = self.memory_data_register.read();
         let high_byte = self.read_from_memory_address_register();
 
@@ -428,9 +435,10 @@ impl Cpu {
         let mut alt = false;
         
         if new_low_byte < 0x00 {
-            self.invert_oops = true;
+            self.oops_amount = -1;
             alt = true;
         } else if new_low_byte >= 0x100 {
+            self.oops_amount = 1;
             alt = true;
         }
 
@@ -441,18 +449,14 @@ impl Cpu {
 
     fn relative_high_byte(&mut self) -> bool {
         let high_byte = self.program_counter.read_high();
-        
-        if self.invert_oops {
-            self.program_counter.write_high(high_byte.wrapping_sub(1));
-        } else {
-            self.program_counter.write_high(high_byte.wrapping_add(1));
-        }
+        self.program_counter.write_high(high_byte.wrapping_add_signed(self.oops_amount));
 
         return false;
     }
-    
-    // instructions
+}
 
+// instructions
+impl Cpu {
     fn add_with_carry(&mut self, memory: u8) {
         let accumulator = self.accumulator.read();
         let carry = self.status_register.read_bit(0) as u8;
@@ -881,7 +885,7 @@ mod tests {
         assert_eq!(cpu.state, State::ReadOpcode);
         assert_eq!(cpu.program_counter.read(), 0x0002);
         assert_eq!(cpu.accumulator.read(), 0x8a);
-        assert_eq!(cpu.status_register.read(), 0b11000000)
+        assert_eq!(cpu.status_register.read(), 0b11100000)
     }
 
     #[test]
@@ -978,7 +982,7 @@ mod tests {
         cpu.cycle();
         assert_eq!(cpu.state, State::ReadWriteCommit);
         assert_eq!(cpu.program_counter.read(), 0x0002);
-        assert_eq!(cpu.status_register.read(), 0b00000010);
+        assert_eq!(cpu.status_register.read(), 0b00100010);
         assert_eq!(cpu.ram.read(0x79, 0x00), 0xff); // write not commited yet
 
         cpu.cycle();
@@ -1030,7 +1034,7 @@ mod tests {
     }
 
     #[test]
-    fn test_jmp_absloute_and_indirect() {
+    fn test_jmp_absolute_and_indirect() {
         let mut cpu = Cpu::new();
 
         // write JMP $0623 to ram
@@ -1066,16 +1070,16 @@ mod tests {
         assert_eq!(cpu.program_counter.read(), 0x0624);
         
         cpu.cycle();
-        assert_eq!(cpu.state, State::AbslouteIndirectHighByte);
+        assert_eq!(cpu.state, State::AbsoluteIndirectHighByte);
         assert_eq!(cpu.program_counter.read(), 0x0625);
         assert_eq!(cpu.memory_address_register.read_low(), 0xff);
 
         cpu.cycle();
-        assert_eq!(cpu.state, State::AbslouteIndirectLowByteActual);
+        assert_eq!(cpu.state, State::AbsoluteIndirectLowByteActual);
         assert_eq!(cpu.memory_address_register.read(), 0x04ff);
 
         cpu.cycle();
-        assert_eq!(cpu.state, State::AbslouteIndirectHighByteActual);
+        assert_eq!(cpu.state, State::AbsoluteIndirectHighByteActual);
         assert_eq!(cpu.memory_data_register.read(), 0x88);
         assert_eq!(cpu.memory_address_register.read(), 0x0400);
 
@@ -1167,5 +1171,353 @@ mod tests {
         cpu.cycle();
         assert_eq!(cpu.state, State::ReadOpcode);
         assert_eq!(cpu.program_counter.read(), 0x0086);
+    }
+
+    #[test]
+    fn test_flag_setting() {
+        let mut cpu = Cpu::new();
+        
+        cpu.ram.write(0x00, 0x00, 0x38); // SEC
+        cpu.ram.write(0x01, 0x00, 0xf8); // SED
+        cpu.ram.write(0x02, 0x00, 0x78); // SEI
+        cpu.ram.write(0x03, 0x00, 0x18); // CLC
+        cpu.ram.write(0x04, 0x00, 0xd8); // CLD
+        cpu.ram.write(0x05, 0x00, 0x58); // CLI
+        cpu.ram.write(0x06, 0x00, 0xb8); // CLV
+
+        // fake a "set overflow" instruction
+        cpu.status_register.set_bit(6);
+        
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+        assert_eq!(cpu.status_register.read(), 0b01100001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.status_register.read(), 0b01101001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.status_register.read(), 0b01101101);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+        assert_eq!(cpu.status_register.read(), 0b01101100);
+        
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0005);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0005);
+        assert_eq!(cpu.status_register.read(), 0b01100100);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0006);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0006);
+        assert_eq!(cpu.status_register.read(), 0b01100000);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::Implied);
+        assert_eq!(cpu.program_counter.read(), 0x0007);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0007);
+        assert_eq!(cpu.status_register.read(), 0b00100000);
+    }
+
+    #[test]
+    fn test_stx_zero_page_indexed_y() {
+        let mut cpu = Cpu::new();
+        
+        // STX ($13,y)
+        cpu.ram.write(0x00, 0x00, 0x96);
+        cpu.ram.write(0x01, 0x00, 0x43);
+        cpu.index_x.write(0x99);
+        cpu.index_y.write(0xff);
+        
+        // effective address = 0x43 + 0xff = 0x42
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::OneOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ZeroPageIndexedY);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read(), 0x0043);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::WriteStart);
+        assert_eq!(cpu.memory_address_register.read(), 0x0042);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.ram.read(0x42, 0x00), 0x99);
+    }
+
+    #[test]
+    fn test_asl_absolute() {
+        let mut cpu = Cpu::new();
+        
+        // ASL $0123
+        cpu.ram.write(0x00, 0x00, 0x0e);
+        cpu.ram.write(0x01, 0x00, 0x23);
+        cpu.ram.write(0x02, 0x00, 0x01);
+        cpu.ram.write(0x23, 0x01, 0xe2);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbsoluteAddressHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read(), 0x0023);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadWriteStart);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.memory_address_register.read(), 0x0123);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadWriteExecute);
+        assert_eq!(cpu.memory_data_register.read(), 0xe2);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadWriteCommit);
+        assert_eq!(cpu.alu_register.read(), 0xc4);
+        assert_eq!(cpu.status_register.read(), 0b10100001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.ram.read(0x23, 0x01), 0xc4);
+    }
+
+    #[test]
+    fn test_and_indirect_indexed() {
+        let mut cpu = Cpu::new();
+
+        // AND ($12),y => AND $0102,y => AND $0103
+        cpu.ram.write(0x00, 0x00, 0x31);
+        cpu.ram.write(0x01, 0x00, 0x12);
+        cpu.ram.write(0x12, 0x00, 0x02);
+        cpu.ram.write(0x13, 0x00, 0x01);
+        cpu.ram.write(0x03, 0x01, 0xf3);
+
+        // AND ($14),y => AND $01ff,y => AND $0200
+        cpu.ram.write(0x02, 0x00, 0x31);
+        cpu.ram.write(0x03, 0x00, 0x14);
+        cpu.ram.write(0x14, 0x00, 0xff);
+        cpu.ram.write(0x15, 0x00, 0x01);
+        cpu.ram.write(0x00, 0x02, 0x2c);
+
+        cpu.accumulator.write(0x8f);
+        cpu.index_y.write(0x01);
+        
+        cpu.cycle();
+        assert_eq!(cpu.state, State::OneOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndirectIndexedLowByte);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read(), 0x0012);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndirectIndexedHighByte);
+        assert_eq!(cpu.memory_address_register.read(), 0x0013);
+        assert_eq!(cpu.memory_data_register.read(), 0x02);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadStart);
+        assert_eq!(cpu.memory_address_register.read(), 0x0103);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.accumulator.read(), 0x83);
+        assert_eq!(cpu.status_register.read(), 0b10100000);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::OneOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndirectIndexedLowByte);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+        assert_eq!(cpu.memory_address_register.read(), 0x0014);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::IndirectIndexedHighByte);
+        assert_eq!(cpu.memory_address_register.read(), 0x0015);
+        assert_eq!(cpu.memory_data_register.read(), 0xff);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::FixHighByte);
+        assert_eq!(cpu.memory_address_register.read(), 0x0100);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadStart);
+        assert_eq!(cpu.memory_address_register.read(), 0x0200);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+        assert_eq!(cpu.accumulator.read(), 0x00);
+        assert_eq!(cpu.status_register.read(), 0b00100010);
+    }
+
+    #[test]
+    fn test_cmp_absolute_indexed_x() {
+        let mut cpu = Cpu::new();
+
+        // CMP $0123,x => CMP $01a3
+        cpu.ram.write(0x00, 0x00, 0xdd);
+        cpu.ram.write(0x01, 0x00, 0x23);
+        cpu.ram.write(0x02, 0x00, 0x01);
+        cpu.ram.write(0xa3, 0x01, 0x33);
+
+        // CMP $0180,x => CMP $0200
+        cpu.ram.write(0x03, 0x00, 0xdd);
+        cpu.ram.write(0x04, 0x00, 0x80);
+        cpu.ram.write(0x05, 0x00, 0x01);
+        cpu.ram.write(0x00, 0x02, 0x34);
+
+        cpu.index_x.write(0x80);
+        cpu.accumulator.write(0x33);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbsoluteIndexedXHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read_low(), 0x23);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadStart);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.memory_address_register.read(), 0x01a3);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.status_register.read(), 0b00100011);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbsoluteIndexedXHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0005);
+        assert_eq!(cpu.memory_address_register.read_low(), 0x80);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::FixHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0006);
+        assert_eq!(cpu.memory_address_register.read(), 0x0100);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadStart);
+        assert_eq!(cpu.memory_address_register.read(), 0x0200);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0006);
+        assert_eq!(cpu.status_register.read(), 0b10100000);
+    }
+
+    #[test]
+    fn test_ora_absolute_indexed_y() {
+        let mut cpu = Cpu::new();
+
+        // ORA $0123,x => ORA $01a3
+        cpu.ram.write(0x00, 0x00, 0x19);
+        cpu.ram.write(0x01, 0x00, 0x23);
+        cpu.ram.write(0x02, 0x00, 0x01);
+        cpu.ram.write(0xa3, 0x01, 0x04);
+
+        // ORA $0180,x => ORA $0200
+        cpu.ram.write(0x03, 0x00, 0x19);
+        cpu.ram.write(0x04, 0x00, 0x80);
+        cpu.ram.write(0x05, 0x00, 0x01);
+        cpu.ram.write(0x00, 0x02, 0x83);
+
+        cpu.index_y.write(0x80);
+        cpu.accumulator.write(0x23);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0001);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbsoluteIndexedYHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0002);
+        assert_eq!(cpu.memory_address_register.read_low(), 0x23);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadStart);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.memory_address_register.read(), 0x01a3);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0003);
+        assert_eq!(cpu.accumulator.read(), 0x27);
+        assert_eq!(cpu.status_register.read(), 0b00100000);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::TwoOperandStart);
+        assert_eq!(cpu.program_counter.read(), 0x0004);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::AbsoluteIndexedYHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0005);
+        assert_eq!(cpu.memory_address_register.read_low(), 0x80);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::FixHighByte);
+        assert_eq!(cpu.program_counter.read(), 0x0006);
+        assert_eq!(cpu.memory_address_register.read(), 0x0100);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadStart);
+        assert_eq!(cpu.memory_address_register.read(), 0x0200);
+
+        cpu.cycle();
+        assert_eq!(cpu.state, State::ReadOpcode);
+        assert_eq!(cpu.program_counter.read(), 0x0006);
+        assert_eq!(cpu.accumulator.read(), 0xa7);
+        assert_eq!(cpu.status_register.read(), 0b10100000);
     }
 }

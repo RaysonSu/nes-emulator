@@ -19,12 +19,12 @@ O2 = "State::IndirectIndexedLowByte"
 O3 = "State::IndirectIndexedHighByte"
 O4 = "State::FixHighByte"
 R2 = "State::JumpHighByte"
-S2 = "State::AbslouteAddressHighByte"
-V2 = "State::AbslouteIndexedXHighByte"
-W2 = "State::AbslouteIndexedYHighByte"
-Y2 = "State::AbslouteIndirectHighByte"
-Y3 = "State::AbslouteIndirectLowByteActual"
-Y4 = "State::AbslouteIndirectHighByteActual"
+S2 = "State::AbsoluteAddressHighByte"
+V2 = "State::AbsoluteIndexedXHighByte"
+W2 = "State::AbsoluteIndexedYHighByte"
+Y2 = "State::AbsoluteIndirectHighByte"
+Y3 = "State::AbsoluteIndirectLowByteActual"
+Y4 = "State::AbsoluteIndirectHighByteActual"
 Z = "State::Relative"
 Z2 = "State::RelativeLowByte"
 Z3 = "State::RelativeHighByte"
@@ -49,10 +49,10 @@ ZERO_PAGE_INDEXED_Y: list[int] = []
 INDEXED_INDIRECT: list[int] = []
 INDIRECT_INDEXED: list[int] = []
 RELATIVE: list[int] = []
-ABSLOUTE: list[int] = []
-ABSLOUTE_INDEXED_X: list[int] = []
-ABSLOUTE_INDEXED_Y: list[int] = []
-ABSLOUTE_INDIRECT: list[int] = []
+ABSOLUTE: list[int] = []
+ABSOLUTE_INDEXED_X: list[int] = []
+ABSOLUTE_INDEXED_Y: list[int] = []
+ABSOLUTE_INDIRECT: list[int] = []
 
 for opcode, ins in enumerate(INSTRUCTIONS):
     lab, addr, *_ = ins.split() + [""]
@@ -83,19 +83,19 @@ for opcode, ins in enumerate(INSTRUCTIONS):
     elif addr == "*+d":
         RELATIVE.append(opcode)
     elif addr == "a":
-        ABSLOUTE.append(opcode)
+        ABSOLUTE.append(opcode)
     elif addr == "a,x":
-        ABSLOUTE_INDEXED_X.append(opcode)
+        ABSOLUTE_INDEXED_X.append(opcode)
     elif addr == "a,y":
-        ABSLOUTE_INDEXED_Y.append(opcode)
+        ABSOLUTE_INDEXED_Y.append(opcode)
     elif addr == "(a)":
-        ABSLOUTE_INDIRECT.append(opcode)
+        ABSOLUTE_INDIRECT.append(opcode)
     else:
         print(f"Bad instruction: {ins}")
 
 ZERO_OPCODE = IMPLIED + IMMEDIATE
 ONE_OPCODE = ZERO_PAGE + ZERO_PAGE_INDEXED_X + ZERO_PAGE_INDEXED_Y + INDEXED_INDIRECT + INDIRECT_INDEXED + RELATIVE
-TWO_OPCODE = ABSLOUTE + ABSLOUTE_INDEXED_X + ABSLOUTE_INDEXED_Y + ABSLOUTE_INDIRECT
+TWO_OPCODE = ABSOLUTE + ABSOLUTE_INDEXED_X + ABSOLUTE_INDEXED_Y + ABSOLUTE_INDIRECT
 
 # flowchart TD
 def table(cur: str, ins: int, alt: bool) -> str | None:
@@ -147,17 +147,17 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # E[Fetch low byte of address] -- Jump --> R
         if ins == 0x4C:
             return R2
-        # E -- Absloute --> S
-        elif ins in ABSLOUTE:
+        # E -- Absolute --> S
+        elif ins in ABSOLUTE:
             return S2
-        # E -- Absloute indexed X --> V
-        elif ins in ABSLOUTE_INDEXED_X:
+        # E -- Absolute indexed X --> V
+        elif ins in ABSOLUTE_INDEXED_X:
             return V2
-        # E -- Absloute indexed Y --> W
-        elif ins in ABSLOUTE_INDEXED_Y:
+        # E -- Absolute indexed Y --> W
+        elif ins in ABSOLUTE_INDEXED_Y:
             return W2
-        # E -- Absloute indirect Jump --> Y
-        elif ins in ABSLOUTE_INDIRECT:
+        # E -- Absolute indirect Jump --> Y
+        elif ins in ABSOLUTE_INDIRECT:
             return Y2
     elif cur == F:
         # F[Read from effective address, and execute instruction] --> A 
@@ -212,17 +212,11 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         return O3
     elif cur == O3:
         # O3[Fetch the high byte of the effective address from address plus 1 mod 256, and add index Y to the low byte of the effective address] -- oops --> O4
-        if alt:
+        if alt or ins in READ_WRITE or ins in WRITE:
             return O4
         # O3 -- read --> F
         elif ins in READ:
             return F
-        # O3 -- read-write --> G
-        elif ins in READ_WRITE:
-            return G
-        # O3 -- write --> H
-        elif ins in WRITE:
-            return H
     elif cur == O4:
         # O4[Fix high byte of effective address] -- read --> F
         if ins in READ:
@@ -248,27 +242,17 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
             return H
     elif cur == V2:
         # V2[Fetch the high byte of the effective address, and add index X to the low byte of it] -- oops --> O4
-        if alt:
+        if alt or ins in READ_WRITE or ins in WRITE:
             return O4
         # V2 -- read --> F
         elif ins in READ:
             return F
-        # V2 -- read-write --> G
-        elif ins in READ_WRITE:
-            return G
-        # V2 -- write --> H
-        elif ins in WRITE:
-            return H
     elif cur == W2:
         # W2[Fetch the high byte of the effective address, and add index Y to the low byte of it] -- oops --> O4
-        if alt:
+        if alt or ins in WRITE:
             return O4
-        # W2 -- read --> F
         elif ins in READ:
             return F
-        # W2 -- write --> H
-        elif ins in WRITE:
-            return H
     elif cur == Y2:
         # Y2[Fetch high byte of pointer] --> Y3
         return Y3
