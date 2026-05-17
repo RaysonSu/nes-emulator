@@ -43,7 +43,7 @@ pub enum AddressMode {
     IndirectIndexedY
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Instruction {
     Lda, Sta, Ldx, Stx, Ldy, Sty,
     Tax, Txa, Tay, Tya,

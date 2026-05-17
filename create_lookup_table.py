@@ -43,7 +43,7 @@ INSTRUCTIONS = ["BRK", "ORA (d,x)", "STP", "SLO (d,x)", "NOP d", "ORA d ", "ASL 
 
 READ_INS = "Lda | Ldx | Ldy | Eor | And | Ora | Adc | Sbc | Cmp | Bit | Lax | Nop | Las".upper().split(" | ")
 READ_MODIFY_WRITE_INS = "Asl | Lsr | Rol | Ror | Inc | Dec | Slo | Sre | Rla | Rra | Isc | Dcp".upper().split(" | ")
-WRITE_INS = "Sta | Stx | Sty | Sax | Ahx | Shx | Shy | Axs".upper().split("|")
+WRITE_INS = "Sta | Stx | Sty | Sax | Ahx | Shx | Shy | Axs".upper().split(" | ")
 
 READ: list[int] = []
 READ_WRITE: list[int] = []
@@ -324,9 +324,50 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
     
     return None
 
-for state, ins, alt in product(STATES, range(256), (True, False)):
-    res = table(state, ins, alt)
-    if not res:
-        print(f"        ({state}, {ins}, {str(alt).lower()}) => None,")
+def all_same[T](values: list[T]) -> bool:
+    if not values:
+        return True
+    
+    return all(value == values[0] for value in values)
+
+for state in STATES:
+    states = [
+        (table(state, i, True), table(state, i, False))
+        for i in range(256)
+    ]
+
+    if all_same(states):
+        true, false = states[0]
+        if true == false:
+            if true:
+                print(f"        ({state}, _, _) => Some({true}),")
+            else:
+                print(f"        ({state}, _, _) => None,")
+        else:
+            if true:
+                print(f"        ({state}, _, true) => Some({true}),")
+            else:
+                print(f"        ({state}, _, true) => None,")
+
+            if false:
+                print(f"        ({state}, _, false) => Some({false}),")
+            else:
+                print(f"        ({state}, _, false) => None,")
     else:
-        print(f"        ({state}, {ins}, {str(alt).lower()}) => Some({table(state, ins, alt)}),")
+        for i, (true, false) in enumerate(states):
+            if true == false:
+                if true:
+                    print(f"        ({state}, {i}, _) => Some({true}),")
+                else:
+                    print(f"        ({state}, {i}, _) => None,")
+            else:
+                if true:
+                    print(f"        ({state}, {i}, true) => Some({true}),")
+                else:
+                    print(f"        ({state}, {i}, true) => None,")
+
+                if false:
+                    print(f"        ({state}, {i}, false) => Some({false}),")
+                else:
+                    print(f"        ({state}, {i}, false) => None,")
+

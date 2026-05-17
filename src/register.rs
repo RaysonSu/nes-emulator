@@ -194,12 +194,13 @@ mod tests {
         reg.increment_high();
         assert_eq!(reg.read(), 0x0032);
 
-        reg.write_bit(12, true);
+        reg.write(0x0000);
+        reg.write_bit(11, true);
         assert_eq!(reg.read(), 0x0800);
-        assert_eq!(reg.read_bit(12), true);
+        assert_eq!(reg.read_bit(11), true);
 
-        reg.write_bit(12, false);
+        reg.write_bit(11, false);
         assert_eq!(reg.read(), 0x0000);
-        assert_eq!(reg.read_bit(12), false);
+        assert_eq!(reg.read_bit(11), false);
     }
 }
