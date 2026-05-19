@@ -28,8 +28,27 @@ Y4 = "State::AbsoluteIndirectHighByteActual"
 Z = "State::Relative"
 Z2 = "State::RelativeLowByte"
 Z3 = "State::RelativeHighByte"
+AA = "State::DummyRead"
+AB = "State::DummyReadAndIncrementPC"
+AB2 = "State::PushPCHighByte"
+AB3 = "State::PushPCLowByte"
+AB4 = "State::PushStatusRegisteWithBFlag"
+AB5 = "State::FetchPCLowByte"
+AB6 = "State::FetchPCHighByte"
+AC = "State::IncrementSP"
+AC2 = "State::PullStatusRegisterAndIncrementSP"
+AC3 = "State::PullPCLowByte"
+AC4 = "State::PullPCHighByte"
+AD = "State::IncrementPC"
+AE = "State::PushAccumulator"
+AF = "State::PushStatusRegister"
+AG = "State::PullAccumulator"
+AH = "State::PullStatusRegister"
+AI = "State::FetchSubroutineLowByte"
+AI2 = "State::JSRMystery"
+AI5 = "State::FetchSubroutineHighByte"
 
-STATES = [A, B, C, D, E, F, G, G2, G3, H, I, J, L, L2, L3, O2, O3, O4, R2, S2, V2, W2, Y2, Y3, Y4, Z, Z2, Z3]
+STATES = [A, B, C, D, E, F, G, G2, G3, H, I, J, L, L2, L3, O2, O3, O4, R2, S2, V2, W2, Y2, Y3, Y4, Z, Z2, Z3, AA, AB, AB2, AB3, AB4, AB5, AB6, AC, AC2, AC3, AC4, AD, AE, AF, AG, AH, AI, AI2, AI5]
 
 INSTRUCTIONS = ["BRK", "ORA (d,x)", "STP", "SLO (d,x)", "NOP d", "ORA d ", "ASL d", "SLO d", "PHP", "ORA #i ", "ASL ", "ANC #i", "NOP a", "ORA a ", "ASL a", "SLO a", "BPL *+d", "ORA (d),y", "STP", "SLO (d),y", "NOP d,x", "ORA d,x ", "ASL d,x", "SLO d,x", "CLC", "ORA a,y", "NOP", "SLO a,y", "NOP a,x", "ORA a,x ", "ASL a,x", "SLO a,x", "JSR a ", "AND (d,x)", "STP", "RLA (d,x)", "BIT d ", "AND d", "ROL d", "RLA d", "PLP ", "AND #i", "ROL ", "ANC #i", "BIT a ", "AND a", "ROL a", "RLA a", "BMI *+d ", "AND (d),y", "STP", "RLA (d),y", "NOP d,x ", "AND d,x", "ROL d,x", "RLA d,x", "SEC ", "AND a,y", "NOP", "RLA a,y", "NOP a,x ", "AND a,x", "ROL a,x", "RLA a,x", "RTI", "EOR (d,x)", "STP", "SRE (d,x)", "NOP d", "EOR d", "LSR d", "SRE d", "PHA", "EOR #i", "LSR ", "ALR #i", "JMP a", "EOR a", "LSR a", "SRE a", "BVC *+d", "EOR (d),y", "STP", "SRE (d),y", "NOP d,x", "EOR d,x", "LSR d,x", "SRE d,x", "CLI", "EOR a,y", "NOP", "SRE a,y", "NOP a,x", "EOR a,x", "LSR a,x", "SRE a,x", "RTS ", "ADC (d,x)", "STP", "RRA (d,x)", "NOP d ", "ADC d", "ROR d", "RRA d", "PLA ", "ADC #i", "ROR ", "ARR #i", "JMP (a) ", "ADC a", "ROR a", "RRA a", "BVS *+d ", "ADC (d),y", "STP", "RRA (d),y", "NOP d,x ", "ADC d,x", "ROR d,x", "RRA d,x", "SEI ", "ADC a,y", "NOP", "RRA a,y", "NOP a,x ", "ADC a,x", "ROR a,x", "RRA a,x", "NOP #i", "STA (d,x)", "NOP #i", "SAX (d,x)", "STY d", "STA d", "STX d", "SAX d ", "DEY", "NOP #i", "TXA", "XAA #i", "STY a", "STA a", "STX a", "SAX a", "BCC *+d", "STA (d),y", "STP ", "AHX (d),y", "STY d,x", "STA d,x", "STX d,y", "SAX d,y", "TYA", "STA a,y", "TXS", "TAS a,y", "SHY a,x", "STA a,x", "SHX a,y ", "AHX a,y", "LDY #i", "LDA (d,x)", "LDX #i", "LAX (d,x)", "LDY d", "LDA d", "LDX d", "LAX d", "TAY", "LDA #i", "TAX", "LAX #i", "LDY a", "LDA a", "LDX a", "LAX a", "BCS *+d", "LDA (d),y", "STP", "LAX (d),y", "LDY d,x", "LDA d,x", "LDX d,y", "LAX d,y", "CLV", "LDA a,y", "TSX", "LAS a,y", "LDY a,x", "LDA a,x", "LDX a,y", "LAX a,y", "CPY #i", "CMP (d,x)", "NOP #i ", "DCP (d,x)", "CPY d", "CMP d ", "DEC d ", "DCP d", "INY", "CMP #i ", "DEX ", "AXS #i", "CPY a", "CMP a ", "DEC a ", "DCP a", "BNE *+d", "CMP (d),y", "STP ", "DCP (d),y", "NOP d,x", "CMP d,x ", "DEC d,x ", "DCP d,x", "CLD", "CMP a,y", "NOP ", "DCP a,y", "NOP a,x", "CMP a,x ", "DEC a,x ", "DCP a,x", "CPX #i", "SBC (d,x)", "NOP #i", "ISC (d,x)", "CPX d", "SBC d", "INC d", "ISC d", "INX", "SBC #i", "NOP", "SBC #i", "CPX a", "SBC a", "INC a", "ISC a", "BEQ *+d", "SBC (d),y", "STP", "ISC (d),y", "NOP d,x", "SBC d,x", "INC d,x", "ISC d,x", "SED", "SBC a,y", "NOP", "ISC a,y", "NOP a,x", "SBC a,x", "INC a,x", "ISC a,x"]
 
@@ -53,6 +72,16 @@ ABSOLUTE: list[int] = []
 ABSOLUTE_INDEXED_X: list[int] = []
 ABSOLUTE_INDEXED_Y: list[int] = []
 ABSOLUTE_INDIRECT: list[int] = []
+JMP = 0x4c
+JSR = 0x20
+RTI = 0x40
+RTS = 0x60
+PHA = 0x48
+PHP = 0x08
+PLA = 0x68
+PLP = 0x28
+BRK = 0x00
+
 
 for opcode, ins in enumerate(INSTRUCTIONS):
     lab, addr, *_ = ins.split() + [""]
@@ -115,6 +144,15 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
         # A -- 2 opcode --> E
         elif ins in TWO_OPCODE:
             return E
+        # A -- Stack --> AA
+        elif ins in [RTI, RTS, PHA, PHP, PLA, PLP]:
+            return AA
+        # A -- BRK --> AB
+        elif ins == BRK:
+            return AB
+        # A -- JSR --> AI
+        elif ins == JSR:
+            return AI
     elif cur == B:
         # B[Dummy read instruction byte, and execute instruction] --> A
         return A
@@ -145,7 +183,7 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
             return O2
     elif cur == E:
         # E[Fetch low byte of address] -- Jump --> R
-        if ins == 0x4C:
+        if ins == JMP:
             return R2
         # E -- Absolute --> S
         elif ins in ABSOLUTE:
@@ -278,6 +316,88 @@ def table(cur: str, ins: int, alt: bool) -> str | None:
             return A
     elif cur == Z3:
         # Z3[Fix high byte of program counter] --> A
+        return A
+    elif cur == AA:
+        # AA[Dummy read instruction byte] -- rti,rts,pla,plp --> AC
+        if ins in [RTI, RTS, PLA, PLP]:
+            return AC
+        # AA -- pha --> AE 
+        elif ins == PHA:
+            return AE
+        # AA -- php --> AF
+        elif ins == PHP:
+            return AF
+    elif cur == AB:
+        # AB[Dummy read instruction byte, and increment PC] --> AB2
+        return AB2
+    elif cur == AB2:
+        # AB2[Push high byte of program counter onto stack, then decrement S] --> AB3
+        return AB3
+    elif cur == AB3:
+        # AB3[Push low byte of program counter onto stack, decrement S] -- brk --> AB4
+        if ins == BRK:
+            return AB4
+        # AB3 -- jsr --> AI5
+        elif ins == JSR:
+            return AI5
+    elif cur == AB4:
+        # AB4[Push status register onto stack, setting B flag, decrement S] --> AB5
+        return AB5
+    elif cur == AB5:
+        # AB5[Fetch low byte of program counter from $FFFE] --> AB6
+        return AB6
+    elif cur == AB6:
+        # AB6[Fetch high byte of program counter from $FFFF] --> A
+        return A
+    elif cur == AC:
+        # AC[Increment S] -- RTI --> AC2
+        if ins == RTI:
+            return AC2
+        # AC -- RTS --> AC3
+        elif ins == RTS:
+            return AC3
+        # AC -- PLA --> AG
+        elif ins == PLA:
+            return AG
+        # AC -- PLP --> AH
+        elif ins == PLP:
+            return AH
+    elif cur == AC2:
+        # AC2[Pull status register from stack, then increment S] --> AC3
+        return AC3
+    elif cur == AC3:
+        # AC3[Pull low byte of program counter from stack, then increment S] --> AC4
+        return AC4
+    elif cur == AC4:
+        # AC4[Pull high byte of program counter from stack] -- RTI --> A
+        if ins == RTI:
+            return A
+        # AC4 -- RTS --> AD 
+        elif ins == RTS:
+            return AD
+    elif cur == AD:
+        # AD[Increment program counter] --> A
+        return A
+    elif cur == AE:
+        # AE[Push accumulator to stack, then decrement S] --> A
+        return A
+    elif cur == AF:
+        # AF[Push status register onto stack, decrement S] --> A
+        return A
+    elif cur == AG:
+        # AG[Pull accumulator from stack] --> A
+        return A
+    elif cur == AH:
+        # AH[Pull status register from stack] --> A
+        return A
+    elif cur == AI:
+        # AI[Fetches low address to low byte of memory address register, then increment program counter] --> AI2
+        return AI2
+    elif cur == AI2:
+        # AI2[Do nothing] --> AB2
+        return AB2
+    elif cur == AI5:
+        # AI5[Fetch high byte of adress to high byte o program counter, copy low byte of memory address register to low byte of program counter] --> A
         return A
     
     return None

@@ -1,5 +1,4 @@
 use Instruction::*;
-use AddressMode::*;
 
 pub const INSTRUCTION_TABLE: [Instruction; 256] = [
     Brk, Ora, Stp, Slo, Nop, Ora, Asl, Slo, Php, Ora, Asl, Anc, Nop, Ora, Asl, Slo,
@@ -21,28 +20,6 @@ pub const INSTRUCTION_TABLE: [Instruction; 256] = [
 ];
 
 
-// TODO: finish this
-pub const ADDRESS_MODE_TABLE: [AddressMode; 4] = [
-    Implicit, ZeroPage, Implicit, Absolute, 
-];
-
-#[derive(PartialEq, Clone)]
-pub enum AddressMode {
-    Implicit,
-    Accumulator,
-    Immediate,
-    ZeroPage,
-    Absolute,
-    Relative,
-    Indirect,
-    ZeroPageIndexedX,
-    ZeroPageIndexedY,
-    AbsoluteIndexedX,
-    AbsoluteIndexedY,
-    IndexedIndirectX,
-    IndirectIndexedY
-}
-
 #[derive(PartialEq, Clone, Debug)]
 pub enum Instruction {
     Lda, Sta, Ldx, Stx, Ldy, Sty,
@@ -58,77 +35,11 @@ pub enum Instruction {
     Nop,
 
     // unofficial opcodes
-    Ahx,
-    Alr,
-    Arr,
-    Axs,
-    Anc,
-    Dcp,
-    Isc,
-    Las,
-    Lax,
-    Rla,
-    Rra,
-    Sax,
-    Shx,
-    Shy,
-    Slo, 
-    Sre,
-    Stp,
-    Tas,
-    Xaa
-}
-
-pub enum InstructionType {
-    NoReadWrite,
-    Stack,
-    Read,
-    ReadModifyWrite,
-    Write,
-    Jump
-}
-
-impl AddressMode {
-    pub fn from_opcode(opcode: u8) -> AddressMode {
-        return ADDRESS_MODE_TABLE[opcode as usize].clone();
-    }
-
-    pub fn get_operand_count(&self) -> usize {
-        let count = match self {
-            Implicit => 0,
-            Accumulator => 0,
-            Immediate => 1,
-            ZeroPage => 1,
-            Absolute => 1,
-            Relative => 2,
-            Indirect => 2,
-            ZeroPageIndexedX => 1,
-            ZeroPageIndexedY => 1,
-            AbsoluteIndexedX => 2,
-            AbsoluteIndexedY => 2,
-            IndexedIndirectX => 1,
-            IndirectIndexedY => 1
-        };
-
-        return count;
-    }
+    Ahx, Alr, Arr, Axs, Anc, Dcp, Isc, Las, Lax, Rla, Rra, Sax, Shx, Shy, Slo,  Sre, Stp, Tas, Xaa
 }
 
 impl Instruction {
     pub fn from_opcode(opcode: u8) -> Instruction {
         return INSTRUCTION_TABLE[opcode as usize].clone();
-    }
-
-    pub fn get_type(&self) -> InstructionType {
-        let instruction_type = match self {
-            Lda | Ldx | Ldy | Eor | And | Ora | Adc | Sbc | Cmp | Bit | Lax | Nop | Las => InstructionType::Read,
-            Asl | Lsr | Rol | Ror | Inc | Dec | Slo | Sre | Rla | Rra | Isc | Dcp => InstructionType::ReadModifyWrite,
-            Sta | Stx | Sty | Sax | Ahx | Shx | Shy | Axs => InstructionType::Write,
-            Tas | Tax | Tay | Tsx | Txa | Txs | Tya | Bcc | Bcs | Bne | Beq | Bpl | Bmi | Bvc | Bvs | Inx | Dex | Iny | Dey | Cpx | Cpy | Clc | Sec | Cli | Sei | Cld | Sed | Clv | Alr | Arr | Anc | Stp | Xaa => InstructionType::NoReadWrite,
-            Brk | Rti | Rts | Pha | Php | Pla | Plp | Jsr => InstructionType::Stack,
-            Jmp => InstructionType::Jump,
-        };
-
-        return instruction_type;
     }
 }

@@ -16,7 +16,6 @@ pub struct Cpu {
     instruction: Instruction,
     oops_amount: i8
 }
-
 // core methods
 impl Cpu {
     pub fn new() -> Cpu {
@@ -70,7 +69,26 @@ impl Cpu {
             State::AbsoluteIndirectHighByteActual => self.absolute_indirect_high_byte(),
             State::Relative => self.relative_pointer(),
             State::RelativeLowByte => self.relative_low_byte(),
-            State::RelativeHighByte => self.relative_high_byte()
+            State::RelativeHighByte => self.relative_high_byte(),
+            State::DummyRead => self.dummy_read(),
+            State::DummyReadAndIncrementPC => self.dummy_read_and_increment_pc(),
+            State::PushPCHighByte => self.push_pch(),
+            State::PushPCLowByte => self.push_pcl(),
+            State::PushStatusRegisteWithBFlag => self.push_sr_with_b(),
+            State::FetchPCLowByte => self.fetch_pcl(),
+            State::FetchPCHighByte => self.fetch_pch(),
+            State::IncrementSP => self.increment_sp(),
+            State::PullStatusRegisterAndIncrementSP => self.pull_sr_and_increment_sp(),
+            State::PullPCLowByte => self.pull_pcl(),
+            State::PullPCHighByte => self.pull_pch(),
+            State::IncrementPC => self.increment_pc(),
+            State::PushAccumulator => self.push_accumulator(),
+            State::PushStatusRegister => self.push_sr(),
+            State::PullAccumulator => self.pull_accumulator(),
+            State::PullStatusRegister => self.pull_sr(),
+            State::FetchSubroutineLowByte => self.fetch_subroutine_low_byte(),
+            State::JSRMystery => self.do_nothing(),
+            State::FetchSubroutineHighByte => self.fetch_subroutine_high_byte(),
             // _ => panic!("State not implented!")
         };
 
@@ -96,6 +114,11 @@ impl Cpu {
     fn read_from_memory_address_register(&mut self) -> u8 {
         return self.read(self.memory_address_register.read_low(), self.memory_address_register.read_high());
     }
+    
+    fn read_from_stack_pointer(&mut self) -> u8 {
+        let stack_pointer = self.stack_pointer.read();
+        return self.ram.read(stack_pointer, 0x01);
+    }
 
     fn write(&mut self, low_byte: u8, high_byte: u8, value: u8) {
         // TODO: implement address mapping
@@ -104,6 +127,11 @@ impl Cpu {
 
     fn write_to_memory_address_register(&mut self, value: u8) {
         self.write(self.memory_address_register.read_low(), self.memory_address_register.read_high(), value);
+    }
+
+    fn write_to_stack_pointer(&mut self, value: u8) {
+        let stack_pointer = self.stack_pointer.read();
+        self.ram.write(stack_pointer, 0x01, value);
     }
 }
 
@@ -451,6 +479,148 @@ impl Cpu {
         let high_byte = self.program_counter.read_high();
         self.program_counter.write_high(high_byte.wrapping_add_signed(self.oops_amount));
 
+        return false;
+    }
+
+    fn dummy_read(&mut self) -> bool {
+        self.read_from_program_counter();
+    
+        return false;
+    }
+
+    fn dummy_read_and_increment_pc(&mut self) -> bool {
+        self.read_from_program_counter();
+        self.program_counter.increment();
+
+        return false;
+    }
+
+    fn push_pch(&mut self) -> bool {
+        let program_counter_high_byte = self.program_counter.read_high();
+        self.write_to_stack_pointer(program_counter_high_byte);
+        self.stack_pointer.decrement();
+
+        return false;
+    }
+
+    fn push_pcl(&mut self) -> bool {
+        let program_counter_low_byte = self.program_counter.read_low();
+        self.write_to_stack_pointer(program_counter_low_byte);
+        self.stack_pointer.decrement();
+
+        return false;
+    }
+
+    fn push_sr_with_b(&mut self) -> bool {
+        let status_register = self.status_register.read() | 0x30;
+        
+        self.write_to_stack_pointer(status_register);
+        self.stack_pointer.decrement();
+
+        return false;
+    }
+
+    fn fetch_pcl(&mut self) -> bool {
+        let program_counter_low_byte = self.read(0xfe, 0xff);
+        self.program_counter.write_low(program_counter_low_byte);
+        
+        return false;
+    }
+
+    fn fetch_pch(&mut self) -> bool {
+        let program_counter_high_byte = self.read(0xff, 0xff);
+        self.program_counter.write_high(program_counter_high_byte);
+
+        return false;
+    }
+
+    fn increment_sp(&mut self) -> bool {
+        self.stack_pointer.increment();
+
+        return false;
+    }
+
+    fn pull_sr_and_increment_sp(&mut self) -> bool {
+        let status_register = self.read_from_stack_pointer() & 0xcf;
+        
+        self.status_register.write(status_register);
+        self.stack_pointer.increment();
+
+        return false;
+    }
+
+    fn pull_pcl(&mut self) -> bool {
+        let program_counter_high_byte = self.read_from_stack_pointer();
+        self.program_counter.write_high(program_counter_high_byte);
+        self.stack_pointer.increment();
+
+        return false;
+    }
+
+    fn pull_pch(&mut self) -> bool {
+        let program_counter_low_byte = self.read_from_stack_pointer();
+        self.program_counter.write_low(program_counter_low_byte);
+        self.stack_pointer.increment();
+
+        return false;
+    }
+
+    fn increment_pc(&mut self) -> bool {
+        self.program_counter.increment();
+
+        return false;
+    }
+
+    fn push_accumulator(&mut self) -> bool {
+        let accumulator = self.accumulator.read();
+        self.write_to_stack_pointer(accumulator);
+        self.stack_pointer.decrement();
+
+        return false;
+    }
+
+    fn push_sr(&mut self) -> bool {
+        let status_register = self.status_register.read() | 0x30;
+        self.write_to_stack_pointer(status_register);
+        self.stack_pointer.decrement();
+
+        return false;
+    }
+
+    fn pull_accumulator(&mut self) -> bool {
+        let accumulator  = self.read_from_stack_pointer();
+        self.accumulator.write(accumulator);
+        self.stack_pointer.increment();
+
+        return false;
+    }
+
+    fn pull_sr(&mut self) -> bool {
+        let status_register = self.read_from_stack_pointer() & 0xcf;
+        self.status_register.write(status_register);
+
+        return false;
+    }
+
+    fn fetch_subroutine_low_byte(&mut self) -> bool {
+        let low_byte = self.read_from_program_counter();
+        self.memory_address_register.write_low(low_byte);
+        self.program_counter.increment();
+
+        return false;
+    }
+
+    fn fetch_subroutine_high_byte(&mut self) -> bool {
+        let high_byte = self.read_from_program_counter();
+        let low_byte = self.memory_address_register.read_low();
+
+        self.program_counter.write_low(low_byte);
+        self.program_counter.write_high(high_byte);
+
+        return false;
+    }
+
+    fn do_nothing(&mut self) -> bool {
         return false;
     }
 }

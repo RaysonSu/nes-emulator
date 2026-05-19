@@ -39,6 +39,10 @@ impl Register8 {
     pub fn increment(&mut self) {
         self.value = self.value.wrapping_add(1);
     }
+
+    pub fn decrement(&mut self) {
+        self.value = self.value.wrapping_sub(1);
+    }
 }
 
 impl Register16 {
@@ -139,6 +143,12 @@ mod tests {
         reg.write(0xff);
         reg.increment();
         assert_eq!(reg.read(), 0x00);
+
+        reg.decrement();
+        assert_eq!(reg.read(), 0xff);
+        
+        reg.decrement();
+        assert_eq!(reg.read(), 0xfe);
     }
 
     #[test]
