@@ -1,7 +1,9 @@
-use crate::{instructions::Instruction, ram::Ram, register::{Register8, Register16}, transition::{State, transition}};
+use crate::{instructions::Instruction, ram::Ram, register::{Register8, Register16}, transition::{State, transition}, ppu::Ppu};
 
 pub struct Cpu {
     ram: Ram,
+    ppu: Option<Box<Ppu>>,
+
     accumulator: Register8,
     index_x: Register8,
     index_y: Register8,
@@ -21,6 +23,8 @@ impl Cpu {
     pub fn new() -> Cpu {
         let mut res = Cpu { 
             ram: Ram::new(),
+            ppu: None,
+
             accumulator: Register8::new(),
             index_x: Register8::new(),
             index_y: Register8::new(),
@@ -38,6 +42,10 @@ impl Cpu {
 
         res.status_register.set_bit(5);
         return res;
+    }
+
+    pub fn connect_ppu(&mut self, ppu: Box<Ppu>) {
+        self.ppu = Some(ppu);
     }
 
     pub fn cycle(&mut self) {
@@ -101,7 +109,13 @@ impl Cpu {
 
     fn read(&mut self, low_byte: u8, high_byte: u8) -> u8 {
         // TODO: implement address mapping
-        let value = self.ram.read(low_byte, high_byte);
+        let mut value = self.memory_data_register.read();
+        
+        if high_byte < 0x20 {
+            value = self.ram.read(low_byte, high_byte);
+        } else if high_byte < 0x40 {
+            // do shit.
+        }
 
         self.memory_data_register.write(value);
         return value;
