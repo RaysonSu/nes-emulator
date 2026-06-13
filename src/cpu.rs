@@ -108,13 +108,12 @@ impl Cpu {
     }
 
     fn read(&mut self, low_byte: u8, high_byte: u8) -> u8 {
-        // TODO: implement address mapping
         let mut value = self.memory_data_register.read();
         
         if high_byte < 0x20 {
             value = self.ram.read(low_byte, high_byte);
-        } else if high_byte < 0x40 {
-            // do shit.
+        } else {
+            todo!("Reads from adresses $2000 - $FFFF are not supported yet.");
         }
 
         self.memory_data_register.write(value);
@@ -135,8 +134,11 @@ impl Cpu {
     }
 
     fn write(&mut self, low_byte: u8, high_byte: u8, value: u8) {
-        // TODO: implement address mapping
-        self.ram.write(low_byte, high_byte, value);
+        if high_byte < 0x20 {
+            self.ram.write(low_byte, high_byte, value);
+        } else {
+            todo!("Writes to adresses $2000 - $FFFF are not supported yet.");
+        }
     }
 
     fn write_to_memory_address_register(&mut self, value: u8) {

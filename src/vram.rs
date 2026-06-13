@@ -1,18 +1,34 @@
 pub struct Oam {
-    values: [u8; 0x100]
+    values: [u8; 0x100],
+    readable: bool
 }
 
 impl Oam {
     pub fn new() -> Oam {
-        return Oam { values: [0; 0x100] }
+        return Oam { 
+            values: [0; 0x100],
+            readable: true
+        }
     }
 
     pub fn read(&self, address: u8) -> u8 {
-        return self.values[address as usize];
+        if self.readable {
+            return self.values[address as usize];
+        } else {
+            return 0xff;
+        }
     }
 
     pub fn write(&mut self, address: u8, value: u8) {
         self.values[address as usize] = value;
+    }
+
+    pub fn make_readable(&mut self) {
+        self.readable = true;
+    }
+
+    pub fn make_unreadable(&mut self) {
+        self.readable = false;
     }
 }
 

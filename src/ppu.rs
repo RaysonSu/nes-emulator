@@ -18,6 +18,28 @@ pub enum PpuRegister {
     PpuData,
     OamDma
 }
+
+pub enum SpriteEvaluationState {
+    ReadSpriteYCoordinate,
+    WriteSpriteYCoordinate,
+    ReadSpriteTile,
+    WriteSpriteTile,
+    ReadSpriteAttributes,
+    WriteSpriteAttributes,
+    ReadSpriteXCoordinate,
+    WriteSpriteXCoordinate,
+    ReadOverflowCheckedValue,
+    OverflowSecondCycle,
+    OverflowThirdCycle,
+    OverflowFourthCycle,
+    OverflowFifthCycle,
+    OverflowSixthCycle,
+    OverflowSeventhCycle,
+    OverflowEighthCycle,
+    ReadFinished,
+    WriteFinished
+}
+
 pub struct Ppu {
     vram: Ram,
     oam: Oam,
@@ -31,6 +53,8 @@ pub struct Ppu {
     fine_x_scroll_register: Register8, // note: actually 3 bits,
     write_toggle_register: Register8, // note: actually 1 bit
 
+    transfer_t_to_v: bool,
+
     ppu_control_register: Register8, // note: only bits 2-7 are used
     ppu_mask_register: Register8,
     oam_address_register: Register8,
@@ -41,7 +65,9 @@ pub struct Ppu {
     attribute_table_byte: u8,
     pattern_table_tile_low: u8,
     pattern_table_tile_high: u8,
-    // secondary_oam_open_slot: u8,
+
+    sprite_evaluation_state: SpriteEvaluationState,
+    found_sprites_count: u8,
 
     scanline: u16,
     cycle_count: u16,
@@ -79,6 +105,11 @@ impl Ppu {
             self.scanline = 0;
             self.frame += 1;
         }
+
+        if self.transfer_t_to_v {
+            self.transfer_t_to_v = false;
+            self.current_vram_address_register.write(self.tempoary_vram_address_register.read());
+        }
     }
 
     pub fn write_register(&mut self, register: PpuRegister, value: u8) {
@@ -90,7 +121,8 @@ impl Ppu {
             PpuRegister::OamData => self.write_oam_data(value),
             PpuRegister::PpuScroll => self.write_ppu_scroll(value),
             PpuRegister::PpuAddr => self.write_ppu_addr(value),
-            PpuRegister::PpuData | PpuRegister::OamDma => todo!()
+            PpuRegister::PpuData => self.write_ppu_data(value), 
+            PpuRegister::OamDma => todo!()
         }
 
         self.io_bus.write(value);
@@ -105,7 +137,8 @@ impl Ppu {
             PpuRegister::OamData => self.read_oam_data(),
             PpuRegister::PpuScroll => (),
             PpuRegister::PpuAddr => (),
-            PpuRegister::PpuData | PpuRegister::OamDma => todo!()
+            PpuRegister::PpuData => self.read_ppu_data(),
+            PpuRegister::OamDma => todo!()
         }
 
         return self.io_bus.read();
@@ -121,11 +154,17 @@ impl Ppu {
         if self.scanline >= 240 { return; } // non-visible scanline
         if self.cycle_count == 0 { return; }
         else if self.cycle_count <= 336 {
+            let low_byte = todo!("figure out which address point to?");
+            let high_byte = todo!("figure out which address point to?");
+
+            let value = self.read(low_byte, high_byte);
+
+            
             match self.cycle_count % 8 {
-                2 => todo!(), // nametable byte
-                4 => todo!(), // attribute table byte
-                6 => todo!(), // pattern table tile low
-                0 => todo!(), // pattern table tile high
+                2 => { self.nametable_byte = value }, // nametable byte
+                4 => { self.attribute_table_byte = value }, // attribute table byte
+                6 => { self.pattern_table_tile_low = value }, // pattern table tile low
+                0 => { self.pattern_table_tile_high = value }, // pattern table tile high
                 _ => (),
             };
         } else if self.cycle_count <= 340 {
@@ -137,36 +176,190 @@ impl Ppu {
 
     fn update_secondary_oam(&mut self) {
         if self.scanline >= 240 { return; } // non-visible scanline
-        if self.cycle_count == 0 { todo!(); }
-        else if self.cycle_count == 1 { // not actually true, but oh well
-            for address in 0..64 {
-                self.secondary_oam.write(address, 0xff);
+        if self.cycle_count == 0 { 
+            todo!(); 
+        } else if self.cycle_count == 1 { 
+            self.oam.make_unreadable();
+        } else if self.cycle_count <= 64 {
+            if self.cycle_count % 2 == 0 { 
+                self.oam.write((self.cycle_count / 2 - 1) as u8, 0xff); 
             }
-            // self.secondary_oam_open_slot = 0;
-        } else if self.cycle_count <= 64 { return; }
-        else if self.cycle_count == 65 { // also not actually true, but also oh well 
-            let mut sprite_number = 0;
-            let mut oam_byte = 0;
-            let mut rendered_sprites = 0;
-            let sprite_height = if self.ppu_control_register.read_bit(5) { 16 } else { 8 };
+        } else if self.cycle_count == 65 { 
+            self.oam.make_readable();
+            self.sprite_evaluation_state = SpriteEvaluationState::ReadSpriteYCoordinate;
+            self.oam_address_register.write(0);
+            self.found_sprites_count = 0;
 
-            while sprite_number < 64 {
-                let y_coordinate = self.oam.read(sprite_number * 4) as u16;
-                
-                if y_coordinate <= self.scanline && self.scanline < y_coordinate + sprite_height {
-                    self.secondary_oam.write(rendered_sprites * 4, self.oam.read(sprite_number * 4));
-                    self.secondary_oam.write(rendered_sprites * 4 + 1, self.oam.read(sprite_number * 4 + 1));
-                    self.secondary_oam.write(rendered_sprites * 4 + 2, self.oam.read(sprite_number * 4 + 2));
-                    self.secondary_oam.write(rendered_sprites * 4 + 3, self.oam.read(sprite_number * 4 + 3));
-                }
-            }
+            self.cycle_sprite_evaluation();
+        } else if self.cycle_count <= 256 { 
+            self.cycle_sprite_evaluation(); 
+        } else if self.cycle_count <= 340 { 
+            return; // does a bunch of reading?
+        } else {
+            panic!("Cycle count should never be above 340.");
         }
+    }
+
+    fn draw_to_screen(&mut self) {
+        todo!("actually implement drawing to screen")
+    }
+}
+
+impl Ppu {
+    fn cycle_sprite_evaluation(&mut self) {
+        self.sprite_evaluation_state = match self.sprite_evaluation_state {
+            SpriteEvaluationState::ReadSpriteYCoordinate => SpriteEvaluationState::WriteSpriteYCoordinate,
+            SpriteEvaluationState::WriteSpriteYCoordinate => self.write_sprite_y_coodinate(),
+            SpriteEvaluationState::ReadSpriteTile => SpriteEvaluationState::WriteSpriteTile,
+            SpriteEvaluationState::WriteSpriteTile => self.write_sprite_tile(),
+            SpriteEvaluationState::ReadSpriteAttributes => SpriteEvaluationState::WriteSpriteAttributes,
+            SpriteEvaluationState::WriteSpriteAttributes => self.write_sprite_attributes(),
+            SpriteEvaluationState::ReadSpriteXCoordinate => SpriteEvaluationState::WriteSpriteXCoordinate,
+            SpriteEvaluationState::WriteSpriteXCoordinate => self.write_sprite_x_coordinate(),
+            SpriteEvaluationState::ReadOverflowCheckedValue => self.process_overflow(),
+            SpriteEvaluationState::OverflowSecondCycle => SpriteEvaluationState::OverflowThirdCycle,
+            SpriteEvaluationState::OverflowThirdCycle => self.process_overflow_third_cycle(),
+            SpriteEvaluationState::OverflowFourthCycle => SpriteEvaluationState::OverflowFifthCycle,
+            SpriteEvaluationState::OverflowFifthCycle => self.process_overflow_fifth_cycle(),
+            SpriteEvaluationState::OverflowSixthCycle => SpriteEvaluationState::OverflowSeventhCycle,
+            SpriteEvaluationState::OverflowSeventhCycle => self.process_overflow_seventh_cycle(),
+            SpriteEvaluationState::OverflowEighthCycle => SpriteEvaluationState::ReadOverflowCheckedValue,
+            SpriteEvaluationState::ReadFinished => SpriteEvaluationState::WriteFinished,
+            SpriteEvaluationState::WriteFinished => self.write_finished()
+        }
+    }
+
+    fn is_y_coordinate_in_range(&self, y_coordinate: u8) -> bool {
+        // TODO: check this
+        let sprite_height = if self.ppu_control_register.read_bit(5) { 16 } else { 8 };
+
+        let lower_bound = y_coordinate as u16;
+        let upper_bound = y_coordinate as u16 + sprite_height;
+
+        return lower_bound <= self.scanline && self.scanline < upper_bound; 
+    }
+
+    fn write_sprite_y_coodinate(&mut self) -> SpriteEvaluationState {
+        let oam_address = self.oam_address_register.read();
+        let y_coordinate = self.oam.read(oam_address);
+        if self.found_sprites_count < 8 {
+            self.secondary_oam.write(self.found_sprites_count * 4, y_coordinate);
+        }
+
+        if self.is_y_coordinate_in_range(y_coordinate) {
+            self.oam_address_register.increment();
+            return SpriteEvaluationState::ReadSpriteTile; // in range, we can now exit
+        }
+
+        self.oam_address_register.write(oam_address.wrapping_add(4));
+        return self.go_to_next_sprite();    
+    }
+
+    fn write_sprite_tile(&mut self) -> SpriteEvaluationState {
+        let oam_address = self.oam_address_register.read();
+        let tile = self.oam.read(oam_address);
+        if self.found_sprites_count < 8 {
+            self.secondary_oam.write(self.found_sprites_count * 4 + 1, tile);
+        }
+
+        self.oam_address_register.increment();
+        return SpriteEvaluationState::ReadSpriteAttributes;
+    }
+
+    fn write_sprite_attributes(&mut self) -> SpriteEvaluationState {
+        let oam_address = self.oam_address_register.read();
+        let attributes = self.oam.read(oam_address);
+        if self.found_sprites_count < 8 {
+            self.secondary_oam.write(self.found_sprites_count * 4 + 2, attributes);
+        }
+
+        self.oam_address_register.increment();
+        return SpriteEvaluationState::ReadSpriteXCoordinate;
+    }
+
+    fn write_sprite_x_coordinate(&mut self) -> SpriteEvaluationState {
+        let oam_address = self.oam_address_register.read();
+        let x_coordinate = self.oam.read(oam_address);
+        if self.found_sprites_count < 8 {
+            self.secondary_oam.write(self.found_sprites_count * 4 + 3, x_coordinate);
+        }
+
+        self.oam_address_register.increment();
+        return self.go_to_next_sprite();
+    }
+
+    fn write_finished(&mut self) -> SpriteEvaluationState {
+        let oam_address = self.oam_address_register.read();
+        let garbage = self.oam.read(oam_address);
+        if self.found_sprites_count < 8 {
+            self.secondary_oam.write(self.found_sprites_count * 4, garbage);
+        }
+
+        self.oam_address_register.write(oam_address.wrapping_add(4));
+
+        return SpriteEvaluationState::ReadFinished;
+    }
+
+    fn go_to_next_sprite(&mut self) -> SpriteEvaluationState {        
+        if self.oam_address_register.read() == 0 { // wrapping
+            return SpriteEvaluationState::ReadFinished;
+        }
+
+        if self.found_sprites_count < 8 { // we're fine, no overflow yet!
+            return SpriteEvaluationState::ReadSpriteYCoordinate;
+        }
+
+        return SpriteEvaluationState::ReadOverflowCheckedValue;
+    }
+
+    fn process_overflow(&mut self) -> SpriteEvaluationState {
+        let mut oam_address = self.oam_address_register.read();
+        let value = self.oam.read(oam_address);
+        
+        if self.is_y_coordinate_in_range(value) {
+            self.ppu_status_register.set_bit(5); // set sprite overflow flag
+            
+            self.oam_address_register.increment();
+
+            return SpriteEvaluationState::OverflowSecondCycle;
+        }
+        
+        // note: this is a ppu bug, see https://www.nesdev.org/wiki/PPU_sprite_evaluation
+        if oam_address & 0x03 == 0x03 {
+            oam_address &= 0xfc;
+            oam_address = oam_address.wrapping_add(4);
+        }  else {
+            oam_address = oam_address.wrapping_add(5);
+        }
+
+        self.oam_address_register.write(oam_address);
+
+        if oam_address < 0x04 {
+            return SpriteEvaluationState::WriteFinished;
+        } else {
+            return SpriteEvaluationState::OverflowEighthCycle;
+        }
+    }
+
+    fn process_overflow_third_cycle(&mut self) -> SpriteEvaluationState {
+        self.oam_address_register.increment();
+        return SpriteEvaluationState::OverflowFourthCycle;
+    }
+
+    fn process_overflow_fifth_cycle(&mut self) -> SpriteEvaluationState {
+        self.oam_address_register.increment();
+        return SpriteEvaluationState::OverflowSixthCycle;
+    }
+
+    fn process_overflow_seventh_cycle(&mut self) -> SpriteEvaluationState {
+        self.oam_address_register.increment();
+        return SpriteEvaluationState::OverflowEighthCycle;
     }
 }
 
 impl Ppu {
     fn read(&mut self, low_byte: u8, high_byte: u8) -> u8 {
-        let mut value = 0;
+        let value;
         let cartridge = self.cartridge.as_ref().expect("cartridge should be connected to ppu before ppu can read");
 
         if high_byte < 0x20 {
@@ -250,8 +443,6 @@ impl Ppu {
         }
     }
 
-    
-
     fn write_ppu_addr(&mut self, value: u8) {
         if !self.write_toggle_register.read_bit(0) {
             self.tempoary_vram_address_register.write_bit(8, value & 1 == 1);
@@ -266,8 +457,12 @@ impl Ppu {
             self.tempoary_vram_address_register.write_low(value);
             self.write_toggle_register.write(0);
 
-            // mystery transfer t to v?
+            self.transfer_t_to_v = true;
         }
+    }
+
+    fn write_ppu_data(&mut self, value: u8) {
+        self.write(self.current_vram_address_register.read_low(), self.current_vram_address_register.read_high(), value);
     }
 
     fn write_oam_addr(&mut self, value: u8) {
@@ -286,9 +481,15 @@ impl Ppu {
         self.io_bus.write_bit(7, (status >> 7) & 1 == 1);
     }
 
+    fn read_ppu_data(&mut self) {
+        let data = self.read(self.current_vram_address_register.read_low(), self.current_vram_address_register.read_high());
+        
+        self.io_bus.write(data);
+    }
+
     fn read_oam_data(&mut self) {
         let address = self.oam_address_register.read();
-
+        
         self.io_bus.write(self.oam.read(address));
     }
 }
