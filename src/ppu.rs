@@ -74,6 +74,7 @@ pub struct Ppu {
     frame: u64
 }
 
+// exposed functions
 impl Ppu {
     // pub fn new() -> Self {
     //     return Ppu { 
@@ -149,6 +150,7 @@ impl Ppu {
     }
 }
 
+// make ppu do shit!
 impl Ppu {
     fn prepare_render(&mut self) {
         if self.scanline >= 240 { return; } // non-visible scanline
@@ -205,6 +207,12 @@ impl Ppu {
     }
 }
 
+// tile fetching (during rendering)
+impl Ppu {
+    
+}
+
+// sprite eval stuff
 impl Ppu {
     fn cycle_sprite_evaluation(&mut self) {
         self.sprite_evaluation_state = match self.sprite_evaluation_state {
@@ -357,6 +365,7 @@ impl Ppu {
     }
 }
 
+// read/write (internal)
 impl Ppu {
     fn read(&mut self, low_byte: u8, high_byte: u8) -> u8 {
         let value;
@@ -401,6 +410,7 @@ impl Ppu {
     }
 }
 
+// read/write memory mapped registers
 impl Ppu {
     fn write_ppu_control(&mut self, value: u8) {
         self.tempoary_vram_address_register.write_bit(10, value & 1 == 1);
