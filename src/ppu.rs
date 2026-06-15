@@ -29,13 +29,7 @@ pub enum SpriteEvaluationState {
     ReadSpriteXCoordinate,
     WriteSpriteXCoordinate,
     ReadOverflowCheckedValue,
-    OverflowSecondCycle,
-    OverflowThirdCycle,
-    OverflowFourthCycle,
-    OverflowFifthCycle,
-    OverflowSixthCycle,
-    OverflowSeventhCycle,
-    OverflowEighthCycle,
+    OverflowCycle(u8),
     ReadFinished,
     WriteFinished
 }
@@ -61,7 +55,7 @@ pub struct Ppu {
     ppu_status_register: Register8, // note: only bits 5-7 are used
     io_bus: Register8,
 
-    nametable_byte: u8,
+    tile_number: u8,
     attribute_table_byte: u8,
     pattern_table_tile_low: u8,
     pattern_table_tile_high: u8,
@@ -71,7 +65,9 @@ pub struct Ppu {
 
     scanline: u16,
     cycle_count: u16,
-    frame: u64
+    frame: u64,
+
+    initialising: bool
 }
 
 // exposed functions
@@ -97,6 +93,9 @@ impl Ppu {
         // actually draw stuff
         self.draw_to_screen();
 
+        // handle misc flags
+        self.handle_flags();
+
         self.cycle_count += 1;
         if self.cycle_count > 341 {
             self.scanline += 1;
@@ -105,12 +104,24 @@ impl Ppu {
         if self.scanline > 261 {
             self.scanline = 0;
             self.frame += 1;
+
+            if self.frame % 2 == 0 {
+                self.cycle_count += 1;
+            }
         }
 
         if self.transfer_t_to_v {
             self.transfer_t_to_v = false;
             self.current_vram_address_register.write(self.tempoary_vram_address_register.read());
         }
+    }
+
+    pub fn reset(&mut self) {
+        todo!("implement reset")
+    }
+
+    pub fn power_up(&mut self) {
+        todo!("implement powering up")
     }
 
     pub fn write_register(&mut self, register: PpuRegister, value: u8) {
@@ -153,24 +164,49 @@ impl Ppu {
 // make ppu do shit!
 impl Ppu {
     fn prepare_render(&mut self) {
-        if self.scanline >= 240 { return; } // non-visible scanline
-        if self.cycle_count == 0 { return; }
-        else if self.cycle_count <= 336 {
-            let low_byte = todo!("figure out which address point to?");
-            let high_byte = todo!("figure out which address point to?");
-
-            let value = self.read(low_byte, high_byte);
-
-            
+        if self.scanline >= 240 && self.scanline != 261 { // non-visible scanline
+            return; 
+        } else if self.cycle_count == 0 {
+            return; 
+        } else if self.cycle_count <= 255 || (self.cycle_count >= 321 && self.cycle_count <= 336) {
             match self.cycle_count % 8 {
-                2 => { self.nametable_byte = value }, // nametable byte
-                4 => { self.attribute_table_byte = value }, // attribute table byte
-                6 => { self.pattern_table_tile_low = value }, // pattern table tile low
-                0 => { self.pattern_table_tile_high = value }, // pattern table tile high
-                _ => (),
+                2 => self.fetch_tile_number(), // nametable byte
+                4 => self.fetch_attribute_byte(), // attribute table byte
+                6 => self.fetch_pattern_table_low_byte(), // pattern table tile low
+                0 => { // pattern table tile high
+                    self.fetch_pattern_table_high_byte();
+                    self.coarse_increment_horizontal_position();
+                }, _ => return
             };
+        } else if self.cycle_count == 256 {
+            self.fetch_pattern_table_high_byte();
+            self.increment_vertical_position();
+        } else if self.cycle_count == 257 {
+            self.copy_horizontal_position_into_v();
+        } else if self.cycle_count == 258 {
+            self.fetch_tile_number();
+        } else if self.cycle_count <= 265 {
+            return;
+        } else if self.cycle_count == 266 { 
+            self.fetch_tile_number(); 
+        } else if self.cycle_count <= 279 {
+            return;
+        } else if self.cycle_count <= 304 {
+            if self.scanline == 261 {
+                self.copy_vertical_position_into_v();
+            } else {
+                return;
+            } 
+        } else if self.cycle_count == 305 {
+            return;
+        } else if self.cycle_count == 306 {
+            self.fetch_tile_number();
+        } else if self.cycle_count <= 320 {
+            return;
+        } else if self.cycle_count == 338 {
+            self.fetch_tile_number();
         } else if self.cycle_count <= 340 {
-            todo!();
+            return;
         } else {
             panic!("Cycle count should never be above 340.");
         }
@@ -205,11 +241,120 @@ impl Ppu {
     fn draw_to_screen(&mut self) {
         todo!("actually implement drawing to screen")
     }
+
+    fn handle_flags(&mut self) {
+        if self.scanline == 241 && self.cycle_count == 1 {
+            self.ppu_status_register.set_bit(7);
+        }
+
+        if self.scanline == 261 && self.cycle_count == 1 {
+            self.ppu_status_register.write(0);
+        }
+    }
 }
 
-// tile fetching (during rendering)
-impl Ppu {
-    
+// ppu scrolling stuff
+impl Ppu {    
+    fn increment_vertical_position(&mut self) {
+        let mut v = self.current_vram_address_register.read();
+
+        // basically copied from https://www.nesdev.org/wiki/PPU_scrolling#Y_increment
+        if v & 0x7000 != 0x7000 {
+            v += 0x1000;
+        } else {
+            v &= 0x0fff;
+            let mut y = (v & 0x03e0) >> 5;
+            if y == 29 {
+                y = 0;
+                v ^= 0x0800;
+            } else if y == 31 {
+                y = 0;
+            } else {
+                y += 1;
+            }
+            v = (v & 0x7c1f) | (y << 5);
+        }
+
+        self.current_vram_address_register.write(v);
+    }
+
+    fn coarse_increment_horizontal_position(&mut self) {
+        let mut v = self.current_vram_address_register.read();
+
+        if v & 0x001f == 31 {
+            v &= 0x7fe0;
+            v ^= 0x0400;
+        } else {
+            v += 1;
+        }
+
+        self.current_vram_address_register.write(v);
+    }
+
+    fn fetch_tile_number(&mut self) {
+        let v = self.current_vram_address_register.read();
+        let address_high_byte = 0x20 | ((v >> 8) & 0x0f) as u8;
+        let address_low_byte = v as u8; // v & 0xff 
+        
+        let tile_number = self.read(address_low_byte, address_high_byte);
+
+        self.tile_number = tile_number;
+    }
+
+    fn fetch_attribute_byte(&mut self) {
+        let v = self.current_vram_address_register.read();
+        let address_high_byte = 0x23 | ((v >> 8) & 0x0c) as u8;
+        let address_low_byte = (((v >> 4) & 0x38) | ((v >> 2) & 0x07)) as u8;
+        
+        let attribute_table_byte = self.read(address_low_byte, address_high_byte);
+
+        self.attribute_table_byte = attribute_table_byte;
+    }
+
+    fn get_pattern_table_address(&mut self) -> (u8, u8) {
+        let fine_y = (self.current_vram_address_register.read() >> 12) as u8;
+        let pattern_table = self.ppu_control_register.read() & 0x10;
+        let tile_number_low = self.tile_number & 0xf;
+        let tile_number_high = self.tile_number >> 4;
+
+        let address_high_byte = pattern_table | tile_number_high;
+        let address_low_byte = (tile_number_low << 4) | fine_y;
+
+        return (address_low_byte, address_high_byte);
+    }
+
+    fn fetch_pattern_table_low_byte(&mut self) {
+        let (address_low_byte, address_high_byte) = self.get_pattern_table_address();
+
+        let pattern_table_low_byte = self.read(address_low_byte, address_high_byte);
+
+        self.pattern_table_tile_low = pattern_table_low_byte;
+    }
+
+    fn fetch_pattern_table_high_byte(&mut self) {
+        let (mut address_low_byte, address_high_byte) = self.get_pattern_table_address();
+        address_low_byte |= 0x08;
+
+        let pattern_table_high_byte = self.read(address_low_byte, address_high_byte);
+
+        self.pattern_table_tile_high = pattern_table_high_byte;
+    }
+
+    fn copy_horizontal_position_into_v(&mut self) {
+        let t = self.tempoary_vram_address_register.read();
+        let mut v = self.current_vram_address_register.read();
+
+        v = (v & 0x7be0) | (t & 0x041f);
+        self.current_vram_address_register.write(v);
+    }
+
+    fn copy_vertical_position_into_v(&mut self) {
+        let t = self.tempoary_vram_address_register.read();
+        let mut v = self.current_vram_address_register.read();
+
+        v = (v & 0x041f) | (t & 0x7be0);
+        self.current_vram_address_register.write(v);
+    }
 }
 
 // sprite eval stuff
@@ -225,13 +370,7 @@ impl Ppu {
             SpriteEvaluationState::ReadSpriteXCoordinate => SpriteEvaluationState::WriteSpriteXCoordinate,
             SpriteEvaluationState::WriteSpriteXCoordinate => self.write_sprite_x_coordinate(),
             SpriteEvaluationState::ReadOverflowCheckedValue => self.process_overflow(),
-            SpriteEvaluationState::OverflowSecondCycle => SpriteEvaluationState::OverflowThirdCycle,
-            SpriteEvaluationState::OverflowThirdCycle => self.process_overflow_third_cycle(),
-            SpriteEvaluationState::OverflowFourthCycle => SpriteEvaluationState::OverflowFifthCycle,
-            SpriteEvaluationState::OverflowFifthCycle => self.process_overflow_fifth_cycle(),
-            SpriteEvaluationState::OverflowSixthCycle => SpriteEvaluationState::OverflowSeventhCycle,
-            SpriteEvaluationState::OverflowSeventhCycle => self.process_overflow_seventh_cycle(),
-            SpriteEvaluationState::OverflowEighthCycle => SpriteEvaluationState::ReadOverflowCheckedValue,
+            SpriteEvaluationState::OverflowCycle(cycle) => self.process_overflow_cycle(cycle),
             SpriteEvaluationState::ReadFinished => SpriteEvaluationState::WriteFinished,
             SpriteEvaluationState::WriteFinished => self.write_finished()
         }
@@ -329,7 +468,7 @@ impl Ppu {
             
             self.oam_address_register.increment();
 
-            return SpriteEvaluationState::OverflowSecondCycle;
+            return SpriteEvaluationState::OverflowCycle(2);
         }
         
         // note: this is a ppu bug, see https://www.nesdev.org/wiki/PPU_sprite_evaluation
@@ -345,23 +484,20 @@ impl Ppu {
         if oam_address < 0x04 {
             return SpriteEvaluationState::WriteFinished;
         } else {
-            return SpriteEvaluationState::OverflowEighthCycle;
+            return SpriteEvaluationState::OverflowCycle(8);
         }
     }
 
-    fn process_overflow_third_cycle(&mut self) -> SpriteEvaluationState {
-        self.oam_address_register.increment();
-        return SpriteEvaluationState::OverflowFourthCycle;
-    }
+    fn process_overflow_cycle(&mut self, cycle: u8) -> SpriteEvaluationState {
+        if cycle % 2 == 1 {
+            self.oam_address_register.increment();
+        }
 
-    fn process_overflow_fifth_cycle(&mut self) -> SpriteEvaluationState {
-        self.oam_address_register.increment();
-        return SpriteEvaluationState::OverflowSixthCycle;
-    }
-
-    fn process_overflow_seventh_cycle(&mut self) -> SpriteEvaluationState {
-        self.oam_address_register.increment();
-        return SpriteEvaluationState::OverflowEighthCycle;
+        if cycle < 8 {
+            return SpriteEvaluationState::OverflowCycle(cycle + 1);
+        } else {
+            return SpriteEvaluationState::ReadOverflowCheckedValue;
+        }
     }
 }
 
@@ -413,55 +549,56 @@ impl Ppu {
 // read/write memory mapped registers
 impl Ppu {
     fn write_ppu_control(&mut self, value: u8) {
-        self.tempoary_vram_address_register.write_bit(10, value & 1 == 1);
-        self.tempoary_vram_address_register.write_bit(11, (value >> 1) & 1 == 1);
+        if self.initialising { return; }
 
-        self.ppu_control_register.write_bit(2, (value >> 2) & 1 == 1);
-        self.ppu_control_register.write_bit(3, (value >> 3) & 1 == 1);
-        self.ppu_control_register.write_bit(4, (value >> 4) & 1 == 1);
-        self.ppu_control_register.write_bit(5, (value >> 5) & 1 == 1);
-        self.ppu_control_register.write_bit(6, (value >> 6) & 1 == 1);
-        self.ppu_control_register.write_bit(7, (value >> 7) & 1 == 1);
+        let mut t = self.tempoary_vram_address_register.read();
+        t = t & 0xf3ff | (value as u16 & 0x03) << 10;
+
+        self.tempoary_vram_address_register.write(t);
+        
+        let mut ppu_control = self.ppu_control_register.read();
+        ppu_control = ppu_control & 0x03 | value & 0xfc;
+
+        self.ppu_control_register.write(ppu_control);
+
     }
 
     fn write_ppu_mask(&mut self, value: u8) {
+        if self.initialising { return; }
+
         self.ppu_mask_register.write(value);
     }
 
     fn write_ppu_scroll(&mut self, value: u8) {
+        if self.initialising { return; }
+
         if !self.write_toggle_register.read_bit(0) {
-            self.tempoary_vram_address_register.write_bit(0, (value >> 3) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(1, (value >> 4) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(2, (value >> 5) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(3, (value >> 6) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(4, (value >> 7) & 1 == 1);
-            self.fine_x_scroll_register.write_bit(0, value & 1 == 1);
-            self.fine_x_scroll_register.write_bit(1, (value >> 1) & 1 == 1);
-            self.fine_x_scroll_register.write_bit(2, (value >> 2) & 1 == 1);
+            let mut t = self.tempoary_vram_address_register.read();
+            t = t & 0x7fe0 | (value as u16 >> 3);
+
+            self.tempoary_vram_address_register.write(t);
+
+            let x = value & 0x07;
+            self.fine_x_scroll_register.write(x);
+
             self.write_toggle_register.write(1);
         } else {
-            self.tempoary_vram_address_register.write_bit(5, (value >> 3) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(6, (value >> 4) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(7, (value >> 5) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(8, (value >> 6) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(9, (value >> 7) & 1 == 1);
+            let mut t = self.tempoary_vram_address_register.read();
+            t = t & 0x0c1f | (value as u16 & 0x03) << 12 | (value as u16 & 0xfc) << 2;
 
-            self.tempoary_vram_address_register.write_bit(12, value & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(13, (value >> 1) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(14, (value >> 2) & 1 == 1);
+            self.tempoary_vram_address_register.write(t);
+
             self.write_toggle_register.write(0);
         }
     }
 
     fn write_ppu_addr(&mut self, value: u8) {
+        if self.initialising { return; }
+
         if !self.write_toggle_register.read_bit(0) {
-            self.tempoary_vram_address_register.write_bit(8, value & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(9, (value >> 1) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(10, (value >> 2) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(11, (value >> 3) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(12, (value >> 4) & 1 == 1);
-            self.tempoary_vram_address_register.write_bit(13, (value >> 5) & 1 == 1);
+            self.tempoary_vram_address_register.write_high(value);
             self.tempoary_vram_address_register.unset_bit(14);
+            self.tempoary_vram_address_register.unset_bit(15);
             self.write_toggle_register.write(1);
         } else {
             self.tempoary_vram_address_register.write_low(value);
@@ -486,9 +623,11 @@ impl Ppu {
 
     fn read_ppu_status(&mut self) {
         let status = self.ppu_status_register.read();
-        self.io_bus.write_bit(5, (status >> 5) & 1 == 1);
-        self.io_bus.write_bit(6, (status >> 6) & 1 == 1);
-        self.io_bus.write_bit(7, (status >> 7) & 1 == 1);
+        let mut io_bus = self.io_bus.read();
+        
+        io_bus = (io_bus & 0x1f) | (status & 0xe0);
+        self.io_bus.write(io_bus);
+        self.ppu_status_register.unset_bit(7);
     }
 
     fn read_ppu_data(&mut self) {
