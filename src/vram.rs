@@ -60,10 +60,15 @@ impl PaletteRam {
     }
 
     pub fn read(&self, address: u8) -> u8 {
-        return self.values[(address as usize) & 0x1f];
+        // ensure reading 0x3f00 is the same as 0x3f10
+        let mask = ((address & 0x0f != 0x00) as usize) << 4;
+
+        return self.values[(address as usize) & 0x1f & mask];
     }
 
     pub fn write(&mut self, address: u8, value: u8) {
-        self.values[(address as usize) & 0x1f] = value;
+        let mask = ((address & 0x0f != 0x00) as usize) << 4;
+
+        self.values[(address as usize) & 0x1f & mask] = value;
     }
 }

@@ -19,7 +19,7 @@ pub enum PpuRegister {
     OamDma
 }
 
-pub enum SpriteEvaluationState {
+enum SpriteEvaluationState {
     ReadSpriteYCoordinate,
     WriteSpriteYCoordinate,
     ReadSpriteTile,
@@ -34,6 +34,14 @@ pub enum SpriteEvaluationState {
     WriteFinished
 }
 
+#[derive(Clone, Copy)]
+struct TileData {
+    tile_number: u8,
+    attribute_table_byte: u8,
+    pattern_table_tile_low: u8,
+    pattern_table_tile_high: u8,
+}
+
 pub struct Ppu {
     vram: Ram,
     oam: Oam,
@@ -43,7 +51,7 @@ pub struct Ppu {
     cartridge: Option<Rc<Cartridge>>,
 
     current_vram_address_register: Register16, // note: actually 15 bits
-    tempoary_vram_address_register: Register16, // note: actually 15 bits,
+    temporary_vram_address_register: Register16, // note: actually 15 bits,
     fine_x_scroll_register: Register8, // note: actually 3 bits,
     write_toggle_register: Register8, // note: actually 1 bit
 
@@ -55,10 +63,9 @@ pub struct Ppu {
     ppu_status_register: Register8, // note: only bits 5-7 are used
     io_bus: Register8,
 
-    tile_number: u8,
-    attribute_table_byte: u8,
-    pattern_table_tile_low: u8,
-    pattern_table_tile_high: u8,
+    temporary_tile_data: TileData,
+    next_tile_data: TileData,
+    current_tile_data: TileData,
 
     sprite_evaluation_state: SpriteEvaluationState,
     found_sprites_count: u8,
@@ -112,7 +119,7 @@ impl Ppu {
 
         if self.transfer_t_to_v {
             self.transfer_t_to_v = false;
-            self.current_vram_address_register.write(self.tempoary_vram_address_register.read());
+            self.current_vram_address_register.write(self.temporary_vram_address_register.read());
         }
     }
 
@@ -176,6 +183,7 @@ impl Ppu {
                 0 => { // pattern table tile high
                     self.fetch_pattern_table_high_byte();
                     self.coarse_increment_horizontal_position();
+                    self.shift_tile_data();
                 }, _ => return
             };
         } else if self.cycle_count == 256 {
@@ -298,7 +306,7 @@ impl Ppu {
         
         let tile_number = self.read(address_low_byte, address_high_byte);
 
-        self.tile_number = tile_number;
+        self.temporary_tile_data.tile_number = tile_number;
     }
 
     fn fetch_attribute_byte(&mut self) {
@@ -308,14 +316,14 @@ impl Ppu {
         
         let attribute_table_byte = self.read(address_low_byte, address_high_byte);
 
-        self.attribute_table_byte = attribute_table_byte;
+        self.temporary_tile_data.attribute_table_byte = attribute_table_byte;
     }
 
     fn get_pattern_table_address(&mut self) -> (u8, u8) {
         let fine_y = (self.current_vram_address_register.read() >> 12) as u8;
         let pattern_table = self.ppu_control_register.read() & 0x10;
-        let tile_number_low = self.tile_number & 0xf;
-        let tile_number_high = self.tile_number >> 4;
+        let tile_number_low = self.temporary_tile_data.tile_number & 0xf;
+        let tile_number_high = self.temporary_tile_data.tile_number >> 4;
 
         let address_high_byte = pattern_table | tile_number_high;
         let address_low_byte = (tile_number_low << 4) | fine_y;
@@ -328,7 +336,7 @@ impl Ppu {
 
         let pattern_table_low_byte = self.read(address_low_byte, address_high_byte);
 
-        self.pattern_table_tile_low = pattern_table_low_byte;
+        self.temporary_tile_data.pattern_table_tile_low = pattern_table_low_byte;
     }
 
     fn fetch_pattern_table_high_byte(&mut self) {
@@ -337,11 +345,11 @@ impl Ppu {
 
         let pattern_table_high_byte = self.read(address_low_byte, address_high_byte);
 
-        self.pattern_table_tile_high = pattern_table_high_byte;
+        self.temporary_tile_data.pattern_table_tile_high = pattern_table_high_byte;
     }
 
     fn copy_horizontal_position_into_v(&mut self) {
-        let t = self.tempoary_vram_address_register.read();
+        let t = self.temporary_vram_address_register.read();
         let mut v = self.current_vram_address_register.read();
 
         v = (v & 0x7be0) | (t & 0x041f);
@@ -349,11 +357,16 @@ impl Ppu {
     }
 
     fn copy_vertical_position_into_v(&mut self) {
-        let t = self.tempoary_vram_address_register.read();
+        let t = self.temporary_vram_address_register.read();
         let mut v = self.current_vram_address_register.read();
 
         v = (v & 0x041f) | (t & 0x7be0);
         self.current_vram_address_register.write(v);
+    }
+
+    fn shift_tile_data(&mut self) {
+        self.current_tile_data = self.next_tile_data;
+        self.next_tile_data = self.temporary_tile_data;
     }
 }
 
@@ -501,6 +514,40 @@ impl Ppu {
     }
 }
 
+// render stuff
+impl Ppu {
+    fn compute_background_pixel(&mut self) -> u8 {
+        let low_plane = self.current_tile_data.pattern_table_tile_low;
+        let high_plane = self.current_tile_data.pattern_table_tile_high;
+
+        let fine_x = self.fine_x_scroll_register.read();
+        let low_bit = (low_plane >> fine_x) & 1;
+        let high_bit = (high_plane >> fine_x) & 1;
+
+        let color_index = (high_bit << 1) | low_bit;
+
+        let attribute_index = 
+            if self.current_vram_address_register.read_bit(1) { 2 } else { 0 }
+            + if self.current_vram_address_register.read_bit(6) { 4 } else { 0 };
+        
+        let palette_index = (self.current_tile_data.attribute_table_byte >> attribute_index) & 0x03;
+
+        return (palette_index << 2) | color_index;
+    }
+
+    fn compute_sprite_pixel(&mut self) -> u8 {
+
+        let current_x = ((self.current_vram_address_register.read_low() & 0x1f) << 3) | self.fine_x_scroll_register.read();
+        for current_sprite_index in 0..8 {
+            let current_sprite_x = self.secondary_oam.read(current_sprite_index * 4 + 3);
+            
+            if 
+        }
+
+        return 0;
+    }
+}
+
 // read/write (internal)
 impl Ppu {
     fn read(&mut self, low_byte: u8, high_byte: u8) -> u8 {
@@ -551,10 +598,10 @@ impl Ppu {
     fn write_ppu_control(&mut self, value: u8) {
         if self.initialising { return; }
 
-        let mut t = self.tempoary_vram_address_register.read();
+        let mut t = self.temporary_vram_address_register.read();
         t = t & 0xf3ff | (value as u16 & 0x03) << 10;
 
-        self.tempoary_vram_address_register.write(t);
+        self.temporary_vram_address_register.write(t);
         
         let mut ppu_control = self.ppu_control_register.read();
         ppu_control = ppu_control & 0x03 | value & 0xfc;
@@ -573,20 +620,20 @@ impl Ppu {
         if self.initialising { return; }
 
         if !self.write_toggle_register.read_bit(0) {
-            let mut t = self.tempoary_vram_address_register.read();
+            let mut t = self.temporary_vram_address_register.read();
             t = t & 0x7fe0 | (value as u16 >> 3);
 
-            self.tempoary_vram_address_register.write(t);
+            self.temporary_vram_address_register.write(t);
 
             let x = value & 0x07;
             self.fine_x_scroll_register.write(x);
 
             self.write_toggle_register.write(1);
         } else {
-            let mut t = self.tempoary_vram_address_register.read();
+            let mut t = self.temporary_vram_address_register.read();
             t = t & 0x0c1f | (value as u16 & 0x03) << 12 | (value as u16 & 0xfc) << 2;
 
-            self.tempoary_vram_address_register.write(t);
+            self.temporary_vram_address_register.write(t);
 
             self.write_toggle_register.write(0);
         }
@@ -596,12 +643,12 @@ impl Ppu {
         if self.initialising { return; }
 
         if !self.write_toggle_register.read_bit(0) {
-            self.tempoary_vram_address_register.write_high(value);
-            self.tempoary_vram_address_register.unset_bit(14);
-            self.tempoary_vram_address_register.unset_bit(15);
+            self.temporary_vram_address_register.write_high(value);
+            self.temporary_vram_address_register.unset_bit(14);
+            self.temporary_vram_address_register.unset_bit(15);
             self.write_toggle_register.write(1);
         } else {
-            self.tempoary_vram_address_register.write_low(value);
+            self.temporary_vram_address_register.write_low(value);
             self.write_toggle_register.write(0);
 
             self.transfer_t_to_v = true;
