@@ -535,16 +535,32 @@ impl Ppu {
         return (palette_index << 2) | color_index;
     }
 
-    fn compute_sprite_pixel(&mut self) -> u8 {
+    fn compute_sprite_pixel(&mut self) -> (u8, bool) {
+        // returns (color, is high priority)
 
-        let current_x = ((self.current_vram_address_register.read_low() & 0x1f) << 3) | self.fine_x_scroll_register.read();
-        for current_sprite_index in 0..8 {
-            let current_sprite_x = self.secondary_oam.read(current_sprite_index * 4 + 3);
+        let current_x = (self.cycle_count - 1) as u8; // we draw x = 0 at cycle 1?
+        let current_y = self.scanline as u8;
+        for sprite_index in 0..8 {
+            let sprite_x = self.secondary_oam.read(sprite_index * 4 + 3);
             
-            if 
+            if !(sprite_x <= current_x && current_x <= sprite_x.saturating_add(7)) { continue; }
+            let sprite_y = self.secondary_oam.read(sprite_index * 4);
+            let sprite_tile = self.secondary_oam.read(sprite_index * 4 + 1);
+            let sprite_attribute = self.secondary_oam.read(sprite_index * 4 + 1);
+
+            let internal_x = 
+                if sprite_attribute >> 5 & 1 == 0 { current_x - sprite_x }
+                else {8 - (current_x - sprite_x)} as u8;
+            
+            let sprite_height = if self.ppu_control_register.read_bit(5) { 16 } else { 8 };
+
+            let internal_x = 
+                if sprite_attribute >> 5 & 1 == 0 { current_x - sprite_x }
+                else {8 - (current_x - sprite_x)} as u8;
+            
         }
 
-        return 0;
+        return (0, false);
     }
 }
 
